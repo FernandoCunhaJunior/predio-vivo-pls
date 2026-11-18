@@ -47,6 +47,10 @@
     carrinho: '<path d="M3 5h3l2 10h10l2-7H7"/><circle cx="10" cy="19" r="1.5"/><circle cx="17" cy="19" r="1.5"/>',
     sol: '<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"/>',
     lixeira: '<path d="M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13"/>',
+    mais: '<path d="M12 5v14M5 12h14"/>',
+    imprimir: '<path d="M7 8V4h10v4"/><rect x="4" y="8" width="16" height="8" rx="1.5"/><path d="M7 14h10v6H7z"/>',
+    aviso: '<path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17.5v.01"/>',
+    pesquisa: '<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.5-4.5"/>',
   };
   function ico(n, t) {
     t = t || 20;
@@ -66,33 +70,47 @@
   function topo(ctx) { return '<header class="topo">' + marca() + '<span class="ctx">' + (ctx || esc(S.org.nome) + ' · ' + S.plano.length + ' ações no plano') + '</span></header>'; }
   function estrelas(seed, n, w, h) { var r = rng(seed), s = ''; for (var i = 0; i < n; i++) s += '<circle cx="' + Math.round(r() * w) + '" cy="' + Math.round(r() * h) + '" r="' + (r() > .7 ? 1.5 : 1) + '" fill="#6E86A6"/>'; return s; }
 
-  // prédio de fachada (rua)
-  function fachada(x, base, w, andares, cols, seed, modo, cor, destaque, fh) {
-    var r = rng(seed), pad = Math.max(4, w * .1), topoY = base - andares * fh - 12, ww = (w - pad * (cols + 1)) / cols;
-    var s = '<rect x="' + x + '" y="' + topoY + '" width="' + w + '" height="' + (base - topoY) + '" rx="3" fill="#16263B" stroke="' + (destaque ? '#FFC53D' : '#2F4666') + '" stroke-width="' + (destaque ? 2.5 : 1) + '"/>';
-    for (var a = 0; a < andares; a++) for (var c = 0; c < cols; c++) {
-      var v = r(), f = '#1F3352';
-      if (modo === 'um') f = v > .45 ? cor : '#1F3352';
-      else if (modo === 'misto') f = v < .38 ? '#1F3352' : ['#FFC53D', '#FFC53D', '#5BB6FF', '#4ADE80', '#4ADE80'][Math.floor(r() * 5)];
-      else r();
-      s += '<rect x="' + (x + pad + c * (ww + pad)).toFixed(1) + '" y="' + (topoY + 10 + a * fh) + '" width="' + ww.toFixed(1) + '" height="' + Math.round(fh * .55) + '" rx="1.5" fill="' + f + '"/>';
-    }
-    return { svg: s, topo: topoY };
-  }
-  function predios() { var l = ORGAOS.slice(); l.splice(7, 0, [S.org.nome || 'Seu órgão', 4, true]); return l; }
-  function temAcao(orgao, c) { return rng(hashTxt(orgao + c.id))() < Math.min(.9, .2 + c.registros / 40); }
-
-  function svgRua(opt) {
-    var W = opt.w, base = opt.h - 40, l = predios(), passo = (W - 20) / l.length, w = passo * .82, s = '', rotulo = '';
-    l.forEach(function (o, i) {
-      var x = 10 + i * passo, eu = !!o[2], modo = 'misto';
-      if (opt.cat) modo = eu ? 'apagado' : (temAcao(o[0], opt.cat) ? 'um' : 'apagado');
-      var p = fachada(x, base, w, o[1] + (opt.cat ? 2 : 0), opt.cat ? 3 : 4, 100 + i, modo, opt.cat ? EIXOS[opt.cat.eixo].cor : null, eu, opt.cat ? 24 : 20);
-      s += p.svg + '<text x="' + (x + w / 2) + '" y="' + (base + 22) + '" text-anchor="middle" font-size="12" font-weight="' + (eu ? 700 : 500) + '" fill="' + (eu ? '#FFC53D' : '#A9B8CA') + '" font-family="IBM Plex Sans, sans-serif">' + esc(o[0]) + '</text>';
-      if (eu) rotulo = '<text x="' + (x + w / 2) + '" y="' + (p.topo - 12) + '" text-anchor="middle" font-size="12" font-weight="700" fill="#FFC53D" font-family="IBM Plex Sans, sans-serif">' + (opt.cat ? 'aqui ainda não' : 'o seu') + '</text>';
+  // a rua real: cada janela é uma iniciativa da base da pesquisa
+  var ORD = ['energia', 'residuos', 'agua'];
+  CATALOGO.forEach(function (c) { c.registros = BASE.filter(function (r) { return r[4] === c.id; }).length; });
+  function semAcento(t) { return String(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+  function predios() { var o = {}; BASE.forEach(function (r) { o[r[2]] = 1; }); return Object.keys(o); }
+  function ruaReal(aceso, interativo, selIdx) {
+    var por = {}, chaves = [], s = '';
+    BASE.forEach(function (r, i) { var k = (r[5] ? 'm|' : 'o|') + r[2]; if (!por[k]) { por[k] = []; chaves.push(k); } por[k].push(i); });
+    [['o', 176, 'ÓRGÃOS DE', 'REFERÊNCIA'], ['m', 300, 'UNIDADES', 'DO MPU']].forEach(function (L) {
+      var ks = chaves.filter(function (k) { return k[0] === L[0]; }).sort(function (a, b) { return por[b].length - por[a].length; }), base = L[1], x = 104;
+      var f = ' font-family="IBM Plex Sans, sans-serif"';
+      s += '<text x="0" y="' + (base - 30) + '" font-size="11" font-weight="700" letter-spacing="1" fill="#A9B8CA"' + f + '>' + L[2] + '</text><text x="0" y="' + (base - 16) + '" font-size="11" font-weight="700" letter-spacing="1" fill="#A9B8CA"' + f + '>' + L[3] + '</text>' +
+        '<text x="0" y="' + (base + 1) + '" font-size="11" fill="#A9B8CA"' + f + '>' + ks.length + ' prédios</text>';
+      ks.forEach(function (k) {
+        var its = por[k], n = its.length, c = n >= 30 ? 5 : n >= 13 ? 4 : n >= 8 ? 3 : n >= 2 ? 2 : 1, w = c * 15 - 4 + 12, vaga = Math.max(w, 56), bx = x + (vaga - w) / 2;
+        var grupos = ORD.map(function (e) { return its.filter(function (i) { return BASE[i][0] === e; }); }).filter(function (g) { return g.length; });
+        var linhas = 0; grupos.forEach(function (g) { linhas += Math.ceil(g.length / c); });
+        var h = linhas * 15 - 4 + 14 + (grupos.length - 1) * 4, topo = base - h, tem = its.some(function (i) { return aceso(BASE[i], i); }), y = topo + 7;
+        s += '<rect x="' + bx + '" y="' + topo + '" width="' + w + '" height="' + h + '" rx="2.5" fill="#16263B" stroke="' + (tem ? '#7C93B3' : '#2F4666') + '" stroke-width="' + (tem ? 1.5 : 1) + '"/>';
+        grupos.forEach(function (g) {
+          var cor = EIXOS[BASE[g[0]][0]].cor;
+          g.forEach(function (i, j) {
+            var r = BASE[i], on = aceso(r, i), at = 'x="' + (bx + 6 + (j % c) * 15) + '" y="' + (y + Math.floor(j / c) * 15) + '" width="11" height="11" rx="1.5" fill="' + (on ? cor : '#1F3352') + '"';
+            if (interativo) s += '<rect class="jan' + (selIdx === i ? ' sel' : '') + '" data-act="janela" data-i="' + i + '" data-dica="' + esc(r[3]) + '|' + esc(r[2]) + ' · ' + EIXOS[r[0]].curto + ' · ' + esc(cat(r[4]).nome) + '" ' + at + '/>';
+            else s += '<rect ' + at + '/>';
+          });
+          y += Math.ceil(g.length / c) * 15 + 4;
+        });
+        s += '<text x="' + (x + vaga / 2) + '" y="' + (base + 15) + '" text-anchor="middle" font-size="10.5" font-weight="600" fill="' + (tem ? '#F4F7FB' : '#A9B8CA') + '"' + f + '>' + esc(k.slice(2).replace('PRM ', '').replace('Vit. ', '')) + '</text>' +
+          '<text x="' + (x + vaga / 2) + '" y="' + (base + 28) + '" text-anchor="middle" font-size="10" fill="#A9B8CA"' + f + '>' + n + '</text>';
+        x += vaga + 12;
+      });
+      s += '<path d="M94 ' + base + 'H1108" stroke="#2F4666" stroke-width="1.5"/>';
     });
-    return '<svg class="rua-svg" role="img" aria-label="' + esc(opt.rotulo) + '" viewBox="0 0 ' + W + ' ' + opt.h + '">' + estrelas(opt.cat ? 21 : 7, 40, W, opt.h * .4) +
-      '<rect x="0" y="' + base + '" width="' + W + '" height="40" fill="#101D2F"/>' + s + rotulo + '<path d="M0 ' + base + 'h' + W + '" stroke="#2F4666" stroke-width="2"/></svg>';
+    return '<svg class="rua-svg" role="img" aria-label="Duas ruas de prédios: em cima os órgãos de referência, embaixo as unidades do MPU. Cada janela é uma iniciativa da pesquisa." viewBox="0 20 1108 316">' + s + '</svg>';
+  }
+  function noPlano(i) { return S.plano.some(function (a) { return a.base === i; }); }
+  function alternaBase(i) {
+    if (noPlano(i)) S.plano = S.plano.filter(function (a) { return a.base !== i; });
+    else { var r = BASE[i]; S.plano.push({ id: novoId(), cat: r[4], titulo: r[3], resp: 'A definir', status: 'planejada', origem: r[2], base: i }); }
+    salvar();
   }
 
   // ---------------------------------------------------------------- abertura
@@ -102,15 +120,15 @@
       '<div class="sobre" style="color:var(--en)">Plano de Logística Sustentável, sem planilha</div>' +
       '<h1>Todo órgão é um prédio.<br><span>Acenda o seu.</span></h1>' +
       '<p class="lead">Cada janela acesa é uma ação de sustentabilidade. Responda a algumas perguntas, veja o PLS do seu órgão se montar sozinho e acompanhe água, energia e resíduos circulando pelo prédio.</p>' +
-      '<div class="acoes"><a class="btn" href="#/montar/0">Montar o meu prédio ' + ico('seta', 18) + '</a><a class="btn linha" href="#/rua">Passear pela rua</a></div>' +
+      '<div class="acoes"><a class="btn" href="#/montar/0">Montar o meu prédio ' + ico('seta', 18) + '</a><a class="btn linha" href="#/pesquisa">Ver as boas práticas</a></div>' +
       '</div><ul class="legenda">' +
       '<li><i style="background:var(--en)"></i><span><strong>Energia elétrica</strong>eficiência, solar, uso racional</span></li>' +
       '<li><i style="background:var(--ag)"></i><span><strong>Água</strong>consumo, chuva, reúso</span></li>' +
       '<li><i style="background:var(--re)"></i><span><strong>Resíduos sólidos</strong>redução, coleta, destino</span></li>' +
-      '<li class="rod"><strong>257 ações reais</strong> de 13 órgãos e do MPU, organizadas em 17 tipos, com 50 indicadores prontos.</li>' +
+      '<li class="rod"><strong>' + BASE.length + ' ações reais</strong> de ' + predios().length + ' órgãos e unidades. Cada janela desta rua é uma delas.</li>' +
       '</ul></section>' +
-      svgRua({ w: 1180, h: 340, rotulo: 'Rua com os prédios dos órgãos de referência; o seu em destaque' }) +
-      '<p class="creditos">Protótipo do grupo de pesquisa “Ministério Público da União Verde: liderando a transformação da gestão sustentável” (ESMPU, Edital nº 162/2024). O catálogo vem dos Planos de Logística Sustentável de STF, STJ, TST, STM, TCU, Senado, Câmara, TJBA, TJRJ, MPBA, MPPE, MPRS e MPRJ e de unidades do MPU.</p>';
+      ruaReal(function () { return true; }, false) +
+      '<p class="creditos">Protótipo do grupo de pesquisa “Ministério Público da União Verde: liderando a transformação da gestão sustentável” (ESMPU, Edital nº 162/2024). As janelas vêm dos Planos de Logística Sustentável de STF, STJ, TST, STM, TCU, Senado, Câmara, TJBA, TJRJ, MPBA, MPPE, MPRS e MPRJ e de 13 unidades do MPU (base de ' + BASE_DATA + ').</p>';
   }
 
   // ---------------------------------------------------------------- montar
@@ -150,7 +168,7 @@
       var tiles = CATALOGO.filter(function (c) { return c.eixo === ex; }).sort(function (a, b) { return b.registros - a.registros; }).map(function (c, i) {
         var on = S.plano.some(function (a) { return a.cat === c.id; });
         return '<button class="tile" style="--c:' + E.cor + '" aria-pressed="' + on + '" data-act="alternar" data-cat="' + c.id + '"><span class="ic">' + ico(c.icone, 26) + '</span><span class="tx"><b>' + esc(c.nome) + '</b><small>' +
-          (i === 0 ? 'A mais comum: ' : '') + c.registros + ' registros em outros órgãos</small></span><span class="mk">' + ico('check', 14) + '</span></button>';
+          (c.registros ? (i === 0 ? 'A mais comum: ' : '') + c.registros + (c.registros === 1 ? ' registro' : ' registros') + ' na base da pesquisa' : 'Nenhum registro na base da pesquisa') + '</small>' + '</span><span class="mk">' + ico('check', 14) + '</span></button>';
       }).join('');
       corpo = '<div class="sobre" style="color:' + E.cor + '">' + ico(E.icone, 16) + esc(E.curto) + '</div><h1>O que ' + (S.org.nome ? 'a ' + esc(S.org.nome) : 'o seu órgão') + ' faz, ou quer fazer, ' + perg + '</h1>' +
         '<p class="lead">Toque em tudo que vale. Cada escolha acende uma janela e já entra no plano com indicador sugerido.</p><div class="tiles">' + tiles + '</div>' +
@@ -271,7 +289,7 @@
     var seg = Object.keys(STATUS).map(function (k) { return '<button style="--c:' + STATUS[k].cor + '" aria-pressed="' + (a.status === k) + '" data-act="status" data-id="' + a.id + '" data-st="' + k + '">' + STATUS[k].nome + '</button>'; }).join('');
     return '<div class="cartao"><small class="rot" style="color:' + E.cor + '">' + esc(E.nome) + '</small><h2>' + esc(a.titulo) + '</h2><dl>' +
       '<div><dt>Tipo de ação</dt><dd>' + esc(c.nome) + '</dd></div><div><dt>Quem responde</dt><dd>' + esc(a.resp) + '</dd></div>' +
-      '<div><dt>Indicador sugerido</dt><dd>' + esc(c.indicador) + '</dd></div><div><dt>Na rua</dt><dd>' + c.registros + ' registros em outros órgãos</dd></div></dl>' +
+      '<div><dt>Indicador sugerido</dt><dd>' + esc(c.indicador) + '</dd></div><div><dt>' + (a.origem ? 'Inspirada no plano de' : 'Na pesquisa') + '</dt><dd>' + (a.origem ? esc(a.origem) : c.registros + ' registros deste tipo') + '</dd></div></dl>' +
       '<div class="seg" role="group" aria-label="Situação">' + seg + '</div></div>';
   }
   function vPredio() {
@@ -297,33 +315,133 @@
       var E = EIXOS[k], itens = S.plano.filter(function (a) { return eixoDe(a) === k; });
       var linhas = itens.map(function (a) {
         var c = cat(a.cat), ops = Object.keys(STATUS).map(function (s) { return '<option value="' + s + '"' + (a.status === s ? ' selected' : '') + '>' + STATUS[s].nome + '</option>'; }).join('');
-        return '<div class="acao"><div><b>' + esc(a.titulo) + '</b><small>' + esc(c.nome) + ' · indicador: ' + esc(c.indicador) + '</small></div>' +
+        return '<div class="acao"><div><b>' + esc(a.titulo) + '</b><small>' + esc(c.nome) + (a.origem ? ' · inspirada no plano de: ' + esc(a.origem) : '') + ' · indicador: ' + esc(c.indicador) + '</small></div>' +
           '<input aria-label="Responsável por: ' + esc(a.titulo) + '" data-campo="resp" data-id="' + a.id + '" value="' + esc(a.resp) + '">' +
+          '<input aria-label="Prazo de: ' + esc(a.titulo) + '" data-campo="prazo" data-id="' + a.id + '" value="' + esc(a.prazo || '') + '" placeholder="Prazo">' +
           '<select aria-label="Situação de: ' + esc(a.titulo) + '" data-campo="status" data-id="' + a.id + '">' + ops + '</select>' +
           '<button class="rm" aria-label="Remover: ' + esc(a.titulo) + '" data-act="remover" data-id="' + a.id + '">' + ico('x', 18) + '</button></div>';
       }).join('');
       return '<section class="grupo" style="--c:' + E.cor + '"><h2>' + ico(E.icone, 20) + esc(E.nome) + ' <span class="suave" style="font-size:14px;font-weight:500">' + itens.length + '</span></h2>' + (linhas || '<div class="vazio">Nenhuma ação neste eixo. <a href="#/rua">Veja o que os vizinhos fazem.</a></div>') + '</section>';
     }).join('');
     return topo() + '<section class="pagina"><h1>O plano</h1><p class="lead">É o mesmo prédio, em forma de lista: as ações do PLS com responsável, situação e indicador sugerido. Edite aqui e as janelas mudam.</p>' +
-      '<div class="acoes"><a class="btn" href="#/montar/1">Acrescentar ações ' + ico('seta', 18) + '</a><button class="btn linha" data-act="imprimir">Imprimir ou salvar PDF</button><button class="btn linha" data-act="baixar">Baixar o plano (JSON)</button><button class="btn linha" data-act="exemplo">Recarregar o exemplo da ESMPU</button></div>' + grupos + '</section>';
+      '<div class="acoes"><a class="btn" href="#/imprimir">Montar e imprimir ' + ico('seta', 18) + '</a><a class="btn linha" href="#/pesquisa">Buscar boas práticas</a><button class="btn linha" data-act="baixar">Baixar o plano (JSON)</button><button class="btn linha" data-act="exemplo">Recarregar o exemplo da ESMPU</button></div>' + grupos + '</section>';
   }
 
-  // ---------------------------------------------------------------- a rua
+  // ---------------------------------------------------------------- a rua (o que falta no meu prédio)
   function lacunas() {
     var ordem = { residuos: 0, agua: 1, energia: 2 };
     return CATALOGO.filter(function (c) { return !S.plano.some(function (a) { return a.cat === c.id; }); })
       .sort(function (a, b) { return ordem[a.eixo] - ordem[b.eixo] || b.registros - a.registros; });
   }
+  function quantos(c) { var u = {}; BASE.forEach(function (r) { if (r[4] === c.id) u[r[2]] = 1; }); return Object.keys(u).length; }
   function vRua(id) {
     var l = lacunas(), sel = l.filter(function (c) { return c.id === id; })[0] || l[0];
-    if (!sel) return topo() + '<section class="pagina"><h1>A rua</h1><p class="lead">Seu prédio já tem os 17 tipos de ação que a pesquisa encontrou nos outros órgãos.</p></section>' + svgRua({ w: 1180, h: 340, rotulo: 'Rua com os prédios dos órgãos' });
-    var E = EIXOS[sel.eixo];
+    if (!sel) return topo() + '<section class="pagina"><h1>A rua</h1><p class="lead">Seu prédio já tem os 17 tipos de ação que a pesquisa encontrou.</p></section>' + ruaReal(function () { return true; }, false);
+    var E = EIXOS[sel.eixo], m = quantos(sel);
     var li = l.map(function (c) { return '<li><button style="--c:' + EIXOS[c.eixo].cor + '" aria-pressed="' + (c.id === sel.id) + '" data-act="lacuna" data-cat="' + c.id + '"><i></i><span>' + esc(c.nome) + '</span><em>' + c.registros + '</em></button></li>'; }).join('');
-    return topo() + '<section class="rua-grade"><div><h1 style="font-size:38px;font-weight:800">A rua</h1><p class="suave" style="font-size:14px;line-height:1.45;margin:8px 0 0">' + l.length + (l.length === 1 ? ' coisa que os vizinhos fazem' : ' coisas que os vizinhos fazem') + ' e o seu prédio ainda não. Escolha uma para ver quem já acendeu.</p><ul class="lacunas">' + li + '</ul></div>' +
-      '<div><div class="rua-cab"><div><div class="sobre" style="color:' + E.cor + '">' + esc(E.curto) + '</div><h2>' + esc(sel.nome) + '</h2><p>' + sel.registros + ' registros entre os 13 órgãos. ' + esc(sel.oficial) + '.</p></div>' +
-      '<button class="btn" data-act="acender" data-cat="' + sel.id + '">Acender no meu prédio ' + ico('seta', 18) + '</button></div>' +
-      svgRua({ w: 740, h: 440, cat: sel, rotulo: 'Prédios dos órgãos; acesos os que já têm esta ação; o seu apagado' }) +
-      '<p class="creditos">Ilustração: neste protótipo os prédios acendem por sorteio. Na versão real, acendem os órgãos que registraram a ação na base da pesquisa, e cada janela abre o texto original do plano.</p></div></section>';
+    return topo() + '<section class="rua-grade"><div><h1 style="font-size:38px;font-weight:800">A rua</h1><p class="suave" style="font-size:14px;line-height:1.45;margin:8px 0 0">' + l.length + (l.length === 1 ? ' tipo de ação que a pesquisa encontrou' : ' tipos de ação que a pesquisa encontrou') + ' e o seu prédio ainda não tem. Escolha um para ver quem já acendeu.</p><ul class="lacunas">' + li + '</ul></div>' +
+      '<div><div class="rua-cab"><div><div class="sobre" style="color:' + E.cor + '">' + esc(E.curto) + '</div><h2>' + esc(sel.nome) + '</h2><p>' +
+      (sel.registros ? sel.registros + (sel.registros === 1 ? ' janela acesa em ' : ' janelas acesas em ') + m + (m === 1 ? ' prédio. ' : ' prédios. ') : 'Nenhum órgão desta base registrou esse tipo. ') + esc(sel.oficial) + '.</p></div>' +
+      '<div class="acoes">' + (sel.registros ? '<button class="btn" data-act="verpraticas" data-cat="' + sel.id + '">Ver as práticas ' + ico('seta', 18) + '</button>' : '') + '<button class="btn linha" data-act="acender" data-cat="' + sel.id + '">Acender no meu prédio</button></div></div>' +
+      ruaReal(function (r) { return r[4] === sel.id; }, false) +
+      '<p class="creditos">Dados reais: acendem os órgãos que registraram esse tipo de ação na base da pesquisa de ' + BASE_DATA + '. Nessa base, fora do MPU, só a Câmara tem ações de resíduos.</p></div></section>';
+  }
+
+  // ---------------------------------------------------------------- a pesquisa (boas práticas)
+  var P = { eixo: null, tipo: null, busca: '', sel: null, tudo: false };
+  function filtroP() {
+    var q = semAcento(P.busca.trim());
+    if (q) return function (r) { return semAcento(r[3]).indexOf(q) >= 0; };
+    if (P.tipo) return function (r) { return r[4] === P.tipo; };
+    if (P.eixo) return function (r) { return r[0] === P.eixo; };
+    return function () { return true; };
+  }
+  function pil(txt, n, cor, on, act, val, icone) {
+    return '<button class="pil" style="--c:' + cor + '" aria-pressed="' + !!on + '" data-act="' + act + '" data-v="' + (val || '') + '">' + (icone ? ico(icone, 16) : '') + esc(txt) + '<span>' + n + '</span></button>';
+  }
+  function cartaoPratica(i) {
+    var r = BASE[i], d = noPlano(i);
+    return '<li class="pratica' + (d ? ' dentro' : '') + '" style="--c:' + EIXOS[r[0]].cor + '"><span class="tx"><span>' + esc(r[3]) + '</span><small><b>' + esc(r[2]) + '</b> · ' + esc(r[1]) + ' · ' + esc(cat(r[4]).nome) + (d ? ' · no seu plano' : '') + '</small></span>' +
+      '<button class="mais" aria-pressed="' + d + '" aria-label="' + (d ? 'Tirar do meu plano: ' : 'Pôr no meu plano: ') + esc(r[3]) + '" data-act="por" data-i="' + i + '">' + ico(d ? 'check' : 'mais', 20) + '</button></li>';
+  }
+  function vPesquisa() {
+    var f = filtroP(), q = P.busca.trim(), idx = [], us = {}, mpu = 0;
+    BASE.forEach(function (r, i) { if (f(r, i)) { idx.push(i); us[r[2]] = 1; if (r[5]) mpu++; } });
+    var n = idx.length, m = Object.keys(us).length, total = predios().length, tit, sub, filtrado = !!(q || P.eixo);
+    if (q) {
+      tit = n ? '“' + esc(q) + '” aparece em ' + n + (n === 1 ? ' janela.' : ' janelas.') : 'Nenhuma janela fala em “' + esc(q) + '”.';
+      var ex = {}; idx.forEach(function (i) { ex[EIXOS[BASE[i][0]].curto.toLowerCase()] = 1; });
+      var exs = Object.keys(ex);
+      sub = n ? 'Em ' + m + (m === 1 ? ' prédio' : ' prédios') + ', ' + (exs.length === 1 ? 'no eixo ' : 'nos eixos ') + exs.join(', ') + '. ' + (mpu ? mpu + (mpu === 1 ? ' é de unidade do MPU.' : ' são de unidades do MPU.') : 'Nenhuma é de unidade do MPU.') : 'Tente outra palavra, como LED, copo, chuva ou campanha.';
+    } else if (P.tipo) {
+      var c = cat(P.tipo);
+      tit = m === 1 ? 'Só um prédio tem “' + esc(c.nome) + '”.' : esc(c.nome) + ': ' + n + ' janelas em ' + m + ' prédios.';
+      sub = (m === 1 ? n + (n === 1 ? ' janela, em: ' : ' janelas, todas em: ') + esc(Object.keys(us)[0]) + '. ' : '') + (mpu ? mpu + ' de unidades do MPU e ' + (n - mpu) + ' de órgãos de referência.' : 'Nenhuma unidade do MPU tem essa ação no plano.');
+    } else if (P.eixo) {
+      var E = EIXOS[P.eixo];
+      tit = n + ' janelas de ' + E.curto.toLowerCase() + '.'; sub = 'Em ' + m + ' dos ' + total + ' prédios. Escolha um tipo de ação para ver só as práticas dele.';
+    } else { tit = BASE.length + ' ações em ' + total + ' prédios.'; sub = 'Cada janela é uma boa prática que um órgão escreveu no próprio plano. Escolha as que servem para você e saia com o seu PLS pronto para imprimir.'; }
+    var np = S.plano.length;
+    var l1 = pil('Tudo', BASE.length, '#F4F7FB', !filtrado, 'peixo', '') + ORD.map(function (e) { return pil(EIXOS[e].curto, BASE.filter(function (r) { return r[0] === e; }).length, EIXOS[e].cor, !q && P.eixo === e && !P.tipo, 'peixo', e, EIXOS[e].icone); }).join('');
+    var l2 = P.eixo && !q ? CATALOGO.filter(function (c) { return c.eixo === P.eixo && c.registros; }).sort(function (a, b) { return b.registros - a.registros; }).map(function (c) { return pil(c.nome, c.registros, EIXOS[P.eixo].cor, P.tipo === c.id, 'ptipo', c.id); }).join('')
+      : '<span class="suave" style="font-size:13px">Escolha um eixo para ver os tipos de ação. Toque em qualquer janela para ler o que o órgão escreveu e levar para o seu plano.</span>';
+    var gav;
+    if (P.sel != null) gav = '<ul class="praticas uma">' + cartaoPratica(P.sel) + '</ul>';
+    else if (!filtrado) {
+      var med = BASE.filter(function (r) { return /-monit$/.test(r[4]); }), um = {}; med.forEach(function (r) { um[r[2]] = 1; });
+      var fora = {}; BASE.forEach(function (r) { if (r[0] === 'residuos' && !r[5]) fora[r[2]] = 1; });
+      var nf = Object.keys(fora).length, ne = BASE.filter(function (r) { return r[0] === 'energia'; }).length;
+      var ach = function (num, cor, txt, rot, act, v) { return '<div class="achado"><b style="color:' + cor + '">' + num + '</b><span>' + txt + '<br><button class="lk" data-act="' + act + '" data-v="' + v + '">' + rot + '</button></span></div>'; };
+      gav = '<div class="achados">' + ach(ne, EIXOS.energia.cor, 'janelas são de <strong>energia</strong>: quase metade de tudo o que os planos prometem.', 'Acender só a energia', 'peixo', 'energia') +
+        ach(med.length, '#F4F7FB', 'janelas são de <strong>medição</strong>. Em ' + (total - Object.keys(um).length) + ' dos ' + total + ' prédios, nenhuma.', 'Procurar “monitor”', 'pbusca', 'monitor') +
+        ach(nf, EIXOS.residuos.cor, (nf === 1 ? 'prédio fora do MPU tem' : 'prédios fora do MPU têm') + ' ação de <strong>resíduos</strong> nesta base' + (nf === 1 ? ': ' + esc(Object.keys(fora)[0]) + '.' : '.'), 'Acender os resíduos', 'peixo', 'residuos') + '</div>';
+    } else {
+      var mostra = P.tudo ? idx : idx.slice(0, 3);
+      gav = n ? '<ul class="praticas">' + mostra.map(cartaoPratica).join('') + '</ul>' + (n > 3 ? '<button class="lk" data-act="ptudo">' + (P.tudo ? 'Mostrar só 3' : 'Ver as ' + n + ' ações') + '</button>' : '') : '';
+    }
+    return '<header class="topo">' + marca() + '<a class="btn peq' + (np ? '' : ' linha') + '" href="#/imprimir">' + ico('plano', 17) + 'Meu plano · ' + (np ? np + (np === 1 ? ' ação' : ' ações') : 'vazio') + '</a></header>' +
+      '<section class="pesq-topo"><div><h1>' + tit + '</h1><p>' + sub + '</p></div>' +
+      '<div class="busca"><label for="p-busca" class="oculto">Procurar uma palavra nos planos</label>' + ico('pesquisa', 20) + '<input id="p-busca" type="search" value="' + esc(P.busca) + '" placeholder="Procure uma palavra: torneira, LED, copo…" autocomplete="off"></div></section>' +
+      '<div class="pils" role="group" aria-label="Acender por eixo">' + l1 + '</div><div class="pils" role="group" aria-label="Acender por tipo de ação">' + l2 + '</div>' +
+      ruaReal(f, true, P.sel) + '<section class="gaveta" aria-live="polite">' + gav + '</section>' +
+      '<div class="rodape-cena"><p>Base pública da pesquisa de ' + BASE_DATA + ': ' + BASE.length + ' iniciativas. Fora do MPU, só a Câmara tem ações de resíduos nessa base. O texto de cada janela é o do plano do órgão.</p>' +
+      '<div class="acoes"><a class="btn" href="#/imprimir">' + ico('imprimir', 18) + 'Montar e imprimir</a></div></div>';
+  }
+
+  // ---------------------------------------------------------------- o PLS para imprimir
+  function vImprimir() {
+    var o = S.org, op = S.imp || (S.imp = { origem: true, indicador: true });
+    var secoes = ORD.map(function (e) {
+      var E = EIXOS[e], acs = S.plano.filter(function (a) { return eixoDe(a) === e; }); if (!acs.length) return '';
+      var linhas = acs.map(function (a) {
+        var c = cat(a.cat);
+        return '<tr><td><b>' + esc(a.titulo) + '</b>' + (op.origem && a.origem ? '<small>Inspirada no plano de: ' + esc(a.origem) + '</small>' : '') + '</td>' + (op.indicador ? '<td>' + esc(c.indicador) + '</td>' : '') +
+          '<td>' + (a.resp && a.resp !== 'A definir' ? esc(a.resp) : '<i></i>') + '</td><td>' + (a.prazo ? esc(a.prazo) : '<i></i>') + '</td></tr>';
+      }).join('');
+      return '<h3><span style="background:' + E.cor + '"></span>' + esc(E.nome) + '</h3><table><thead><tr><th>Ação</th>' + (op.indicador ? '<th class="c2">Indicador</th>' : '') + '<th class="c3">Quem responde</th><th class="c4">Prazo</th></tr></thead><tbody>' + linhas + '</tbody></table>';
+    }).join('');
+    var comEixo = ORD.filter(function (e) { return S.plano.some(function (a) { return eixoDe(a) === e; }); });
+    var semMed = ORD.filter(function (e) { return !S.plano.some(function (a) { return eixoDe(a) === e && /-monit$/.test(a.cat); }); });
+    var semResp = S.plano.filter(function (a) { return !a.resp || a.resp === 'A definir'; }).length, semPrazo = S.plano.filter(function (a) { return !a.prazo; }).length;
+    function it(ok, t) { return '<li class="' + (ok ? 'ok' : 'falta') + '">' + ico(ok ? 'check' : 'aviso', 17) + '<span>' + t + '</span></li>'; }
+    function nomes(l) { return l.map(function (e) { return EIXOS[e].curto.toLowerCase(); }).join(' e '); }
+    var fontes = {}; S.plano.forEach(function (a) { if (a.origem) fontes[a.origem] = 1; });
+    var nf = Object.keys(fontes).length, n = S.plano.length;
+    return '<header class="topo">' + marca() + '<a href="#/pesquisa" style="font-size:14px;font-weight:600">Voltar à pesquisa e escolher mais</a></header>' +
+      '<section class="imp-grade"><div class="imp-lado"><h1>' + (n ? 'Seu PLS já tem cara de documento.' : 'Seu plano ainda está vazio.') + '</h1>' +
+      '<p class="lead">' + (n ? n + (n === 1 ? ' ação' : ' ações') + (nf ? ', com boas práticas de ' + nf + (nf === 1 ? ' órgão' : ' órgãos') : '') + ', em um plano com indicadores e a origem de cada ideia.' : 'Escolha boas práticas na pesquisa ou responda às perguntas para montar o prédio.') + '</p>' +
+      (n ? '<ul class="confere">' + it(comEixo.length === 3, comEixo.length === 3 ? 'Os 3 eixos têm pelo menos uma ação.' : 'Só ' + comEixo.length + ' de 3 eixos têm ação.') +
+        it(!semMed.length, semMed.length ? 'Sem ação de medição em ' + nomes(semMed) + '. É ela que permite comprovar a meta.' : 'Os 3 eixos têm ação de medição, que é o que permite comprovar a meta.') +
+        it(!semResp && !semPrazo, semResp || semPrazo ? 'Faltam ' + semResp + (semResp === 1 ? ' responsável e ' : ' responsáveis e ') + semPrazo + (semPrazo === 1 ? ' prazo' : ' prazos') + '. Dá para preencher na tela Plano ou imprimir e completar à caneta.' : 'Todas as ações têm responsável e prazo.') + '</ul>' : '') +
+      '<div class="campo"><label for="i-org">Nome do órgão</label><input id="i-org" data-campo="nome" value="' + esc(o.nome) + '"></div>' +
+      '<div class="campo"><label for="i-ciclo">Ciclo do plano</label><input id="i-ciclo" data-campo="ciclo" value="' + esc(o.ciclo || '') + '" placeholder="por exemplo: 2027 a 2029"></div>' +
+      '<fieldset class="opcoes"><legend>O que entra no documento</legend>' +
+      '<label><input type="checkbox" data-imp="origem"' + (op.origem ? ' checked' : '') + '> De onde veio cada ação</label><label><input type="checkbox" data-imp="indicador"' + (op.indicador ? ' checked' : '') + '> Indicador sugerido para cada ação</label></fieldset>' +
+      '<div class="acoes"><button class="btn" data-act="imprimir">' + ico('imprimir', 18) + 'Imprimir ou salvar PDF</button><a class="btn linha" href="#/plano">Preencher responsáveis</a></div></div>' +
+      '<article class="papel" aria-label="Prévia do plano para impressão"><div class="p-sobre">Plano de Logística Sustentável</div><div class="p-org" id="p-org">' + (esc(o.nome) || '[NOME DO ÓRGÃO]') + '</div>' +
+      '<div class="p-linha"><span id="p-ciclo">Ciclo ' + (esc(o.ciclo) || '[ANO INICIAL] a [ANO FINAL]') + '</span> · ' + (comEixo.length ? 'eixos ' + comEixo.map(function (e) { return EIXOS[e].curto.toLowerCase(); }).join(', ') + ' · ' : '') + n + (n === 1 ? ' ação' : ' ações') + '</div>' +
+      (secoes || '<p class="p-vazio">Nenhuma ação escolhida ainda.</p>') +
+      '<div class="p-pe">Ações escolhidas com apoio do levantamento de ' + BASE.length + ' iniciativas de ' + predios().length + ' órgãos e unidades, feito pelo grupo de pesquisa “Ministério Público da União Verde” (ESMPU, Edital nº 162/2024).</div></article></section>';
   }
 
   // ---------------------------------------------------------------- lançar
@@ -372,10 +490,13 @@
     else if (r.nome === 'plano') html = vPlano();
     else if (r.nome === 'rua') html = vRua(r.arg);
     else if (r.nome === 'lancar') html = vLancar(r.arg);
+    else if (r.nome === 'pesquisa') html = vPesquisa();
+    else if (r.nome === 'imprimir') html = vImprimir();
     else { r.nome = ''; html = vAbertura(); }
     app.innerHTML = html; dica.hidden = true;
-    var itens = [['predio', 'Prédio', 'predio'], ['plano', 'Plano', 'plano'], ['lancar', 'Lançar', 'lancar'], ['rua', 'A rua', 'rua']];
-    doca.hidden = r.nome === '' || r.nome === 'montar';
+    var itens = [['predio', 'Prédio', 'predio'], ['plano', 'Plano', 'plano'], ['lancar', 'Lançar', 'lancar'], ['rua', 'A rua', 'rua'], ['pesquisa', 'A pesquisa', 'pesquisa']];
+    doca.hidden = r.nome === '' || r.nome === 'montar' || r.nome === 'imprimir';
+    document.body.className = r.nome === 'imprimir' ? 'imp' : '';
     doca.innerHTML = itens.map(function (i) { return '<a href="#/' + i[0] + '"' + (r.nome === i[0] ? ' aria-current="page"' : '') + '>' + ico(i[2], 19) + i[1] + '</a>'; }).join('');
     if (r.nome === 'lancar') calcular();
     aviso = '';
@@ -398,6 +519,13 @@
     else if (act === 'status') { S.plano.forEach(function (a) { if (a.id === id) a.status = el.getAttribute('data-st'); }); mudar(); }
     else if (act === 'remover') { S.plano = S.plano.filter(function (a) { return a.id !== id; }); mudar(); }
     else if (act === 'imprimir') window.print();
+    else if (act === 'peixo') { var ve = el.getAttribute('data-v'); P = { eixo: ve || null, tipo: null, busca: '', sel: null, tudo: false }; desenhar(true); }
+    else if (act === 'ptipo') { var vt = el.getAttribute('data-v'); P.tipo = P.tipo === vt ? null : vt; P.sel = null; P.tudo = false; desenhar(true); }
+    else if (act === 'pbusca') { P = { eixo: null, tipo: null, busca: el.getAttribute('data-v'), sel: null, tudo: false }; desenhar(true); }
+    else if (act === 'ptudo') { P.tudo = !P.tudo; desenhar(true); }
+    else if (act === 'janela') { var ji = parseInt(el.getAttribute('data-i'), 10); P.sel = P.sel === ji ? null : ji; desenhar(true); }
+    else if (act === 'por') { alternaBase(parseInt(el.getAttribute('data-i'), 10)); desenhar(true); var bp = app.querySelector('[data-act="por"][data-i="' + el.getAttribute('data-i') + '"]'); if (bp) bp.focus(); }
+    else if (act === 'verpraticas') { P = { eixo: cat(c).eixo, tipo: c, busca: '', sel: null, tudo: true }; location.hash = '#/pesquisa'; }
     else if (act === 'baixar') {
       var blob = new Blob([JSON.stringify({ orgao: S.org, plano: S.plano.map(function (a) { var k = cat(a.cat); return { eixo: EIXOS[k.eixo].nome, tipo: k.oficial, acao: a.titulo, responsavel: a.resp, situacao: STATUS[a.status].nome, indicador: k.indicador }; }), lancamentos: S.lanc }, null, 2)], { type: 'application/json' });
       var u = URL.createObjectURL(blob), aEl = document.createElement('a'); aEl.href = u; aEl.download = 'pls-' + (S.org.nome || 'orgao').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.json'; aEl.click(); setTimeout(function () { URL.revokeObjectURL(u); }, 500);
@@ -416,9 +544,12 @@
   app.addEventListener('input', function (ev) {
     var t = ev.target;
     if (t.hasAttribute('data-l')) { calcular(); return; }
+    if (t.id === 'p-busca') { P.busca = t.value; P.sel = null; P.tudo = false; desenhar(true); var nb = document.getElementById('p-busca'); if (nb) { nb.focus(); nb.setSelectionRange(nb.value.length, nb.value.length); } return; }
     var campo = t.getAttribute('data-campo'); if (!campo) return;
-    if (campo === 'nome') { S.org.nome = t.value; if (t.value !== 'ESMPU') S.exemplo = false; }
+    if (campo === 'nome') { S.org.nome = t.value; if (t.value !== 'ESMPU') S.exemplo = false; var po = document.getElementById('p-org'); if (po) po.textContent = t.value || '[NOME DO ÓRGÃO]'; }
     else if (campo === 'pessoas') S.org.pessoas = t.value;
+    else if (campo === 'ciclo') { S.org.ciclo = t.value; var pc = document.getElementById('p-ciclo'); if (pc) pc.textContent = 'Ciclo ' + (t.value || '[ANO INICIAL] a [ANO FINAL]'); }
+    else if (campo === 'prazo') S.plano.forEach(function (a) { if (a.id === t.getAttribute('data-id')) a.prazo = t.value; });
     else if (campo === 'resp') S.plano.forEach(function (a) { if (a.id === t.getAttribute('data-id')) a.resp = t.value; });
     salvar();
   });
@@ -426,6 +557,7 @@
     var t = ev.target;
     if (t.getAttribute('data-campo') === 'status') { S.plano.forEach(function (a) { if (a.id === t.getAttribute('data-id')) a.status = t.value; }); salvar(); }
     if (t.getAttribute('data-act-change') === 'mes' && t.value) location.hash = '#/lancar/' + t.value;
+    if (t.hasAttribute('data-imp')) { S.imp = S.imp || {}; S.imp[t.getAttribute('data-imp')] = t.checked; salvar(); desenhar(true); }
   });
   var dica = document.createElement('div'); dica.className = 'dica-jan'; dica.hidden = true; dica.setAttribute('role', 'tooltip'); document.body.appendChild(dica);
   function mostraDica(el) {

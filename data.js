@@ -60,12 +60,6 @@ const METAS_ESMPU = {
   residuos: { texto: 'Metas do plano: instituir o PGRS e cortar os copos descartáveis (marcos abaixo).', marcos: [[2026, 85], [2027, 87.5], [2028, 90]] },
 };
 
-/* Órgãos de referência da pesquisa. A altura dos prédios é ilustrativa. */
-const ORGAOS = [
-  ['STF', 9], ['STJ', 11], ['TST', 7], ['STM', 5], ['TCU', 10], ['Senado', 12], ['Câmara', 9],
-  ['TJBA', 6], ['TJRJ', 8], ['MPBA', 7], ['MPPE', 5], ['MPRS', 6], ['MPRJ', 8],
-];
-
 const STATUS = {
   planejada: { nome: 'Planejada', cor: '#A9B8CA' },
   andamento: { nome: 'Em andamento', cor: '#FFC53D' },
