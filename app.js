@@ -113,6 +113,32 @@
     salvar();
   }
 
+  // prédio de fachada (rua)
+  function fachada(x, base, w, andares, cols, seed, modo, cor, destaque, fh) {
+    var r = rng(seed), pad = Math.max(4, w * .1), topoY = base - andares * fh - 12, ww = (w - pad * (cols + 1)) / cols;
+    var s = '<rect x="' + x + '" y="' + topoY + '" width="' + w + '" height="' + (base - topoY) + '" rx="3" fill="#16263B" stroke="' + (destaque ? '#FFC53D' : '#2F4666') + '" stroke-width="' + (destaque ? 2.5 : 1) + '"/>';
+    for (var a = 0; a < andares; a++) for (var c = 0; c < cols; c++) {
+      var v = r(), f = '#1F3352';
+      if (modo === 'um') f = v > .45 ? cor : '#1F3352';
+      else if (modo === 'misto') f = v < .38 ? '#1F3352' : ['#FFC53D', '#FFC53D', '#5BB6FF', '#4ADE80', '#4ADE80'][Math.floor(r() * 5)];
+      else r();
+      s += '<rect x="' + (x + pad + c * (ww + pad)).toFixed(1) + '" y="' + (topoY + 10 + a * fh) + '" width="' + ww.toFixed(1) + '" height="' + Math.round(fh * .55) + '" rx="1.5" fill="' + f + '"/>';
+    }
+    return { svg: s, topo: topoY };
+  }
+  var CAPA = [['STF', 9], ['STJ', 11], ['TST', 7], ['STM', 5], ['TCU', 10], ['Senado', 12], ['Câmara', 9], ['TJBA', 6], ['TJRJ', 8], ['MPBA', 7], ['MPPE', 5], ['MPRS', 6], ['MPRJ', 8]];
+  function svgCapa() {
+    var W = 1180, H = 340, base = H - 40, l = CAPA.slice(); l.splice(7, 0, [S.org.nome || 'Seu órgão', 4, true]);
+    var passo = (W - 20) / l.length, w = passo * .82, s = '', rotulo = '';
+    l.forEach(function (o, i) {
+      var x = 10 + i * passo, eu = !!o[2], p = fachada(x, base, w, o[1], 4, 100 + i, 'misto', null, eu, 20);
+      s += p.svg + '<text x="' + (x + w / 2) + '" y="' + (base + 22) + '" text-anchor="middle" font-size="12" font-weight="' + (eu ? 700 : 500) + '" fill="' + (eu ? '#FFC53D' : '#A9B8CA') + '" font-family="IBM Plex Sans, sans-serif">' + esc(o[0]) + '</text>';
+      if (eu) rotulo = '<text x="' + (x + w / 2) + '" y="' + (p.topo - 12) + '" text-anchor="middle" font-size="12" font-weight="700" fill="#FFC53D" font-family="IBM Plex Sans, sans-serif">o seu</text>';
+    });
+    return '<svg class="rua-svg" role="img" aria-label="Rua com os prédios dos órgãos de referência; o seu em destaque" viewBox="0 0 ' + W + ' ' + H + '">' + estrelas(7, 40, W, H * .4) +
+      '<rect x="0" y="' + base + '" width="' + W + '" height="40" fill="#101D2F"/>' + s + rotulo + '<path d="M0 ' + base + 'h' + W + '" stroke="#2F4666" stroke-width="2"/></svg>';
+  }
+
   // ---------------------------------------------------------------- abertura
   function vAbertura() {
     return '<header class="topo">' + marca() + '<a href="#/predio" style="font-size:14px;font-weight:600">Entrar no prédio da ' + esc(S.org.nome) + '</a></header>' +
@@ -120,15 +146,15 @@
       '<div class="sobre" style="color:var(--en)">Plano de Logística Sustentável, sem planilha</div>' +
       '<h1>Todo órgão é um prédio.<br><span>Acenda o seu.</span></h1>' +
       '<p class="lead">Cada janela acesa é uma ação de sustentabilidade. Responda a algumas perguntas, veja o PLS do seu órgão se montar sozinho e acompanhe água, energia e resíduos circulando pelo prédio.</p>' +
-      '<div class="acoes"><a class="btn" href="#/montar/0">Montar o meu prédio ' + ico('seta', 18) + '</a><a class="btn linha" href="#/pesquisa">Ver as boas práticas</a></div>' +
+      '<div class="acoes"><a class="btn" href="#/montar/0">Montar o meu prédio ' + ico('seta', 18) + '</a><a class="btn linha" href="#/pesquisa">' + ico('pesquisa', 18) + 'A pesquisa: boas práticas</a><a class="btn linha" href="#/rua">Passear pela rua</a></div>' +
       '</div><ul class="legenda">' +
       '<li><i style="background:var(--en)"></i><span><strong>Energia elétrica</strong>eficiência, solar, uso racional</span></li>' +
       '<li><i style="background:var(--ag)"></i><span><strong>Água</strong>consumo, chuva, reúso</span></li>' +
       '<li><i style="background:var(--re)"></i><span><strong>Resíduos sólidos</strong>redução, coleta, destino</span></li>' +
-      '<li class="rod"><strong>' + BASE.length + ' ações reais</strong> de ' + predios().length + ' órgãos e unidades. Cada janela desta rua é uma delas.</li>' +
+      '<li class="rod"><strong>' + BASE.length + ' ações reais</strong> de ' + predios().length + ' órgãos e unidades, prontas para você escolher em “A pesquisa”.</li>' +
       '</ul></section>' +
-      ruaReal(function () { return true; }, false) +
-      '<p class="creditos">Protótipo do grupo de pesquisa “Ministério Público da União Verde: liderando a transformação da gestão sustentável” (ESMPU, Edital nº 162/2024). As janelas vêm dos Planos de Logística Sustentável de STF, STJ, TST, STM, TCU, Senado, Câmara, TJBA, TJRJ, MPBA, MPPE, MPRS e MPRJ e de 13 unidades do MPU (base de ' + BASE_DATA + ').</p>';
+      svgCapa() +
+      '<p class="creditos">Protótipo do grupo de pesquisa “Ministério Público da União Verde: liderando a transformação da gestão sustentável” (ESMPU, Edital nº 162/2024). Nesta capa os prédios são ilustrativos; as ações de “A pesquisa” vêm dos Planos de Logística Sustentável de STF, STJ, TST, STM, TCU, Senado, Câmara, TJBA, TJRJ, MPBA, MPPE, MPRS e MPRJ e de 13 unidades do MPU (base de ' + BASE_DATA + ').</p>';
   }
 
   // ---------------------------------------------------------------- montar
