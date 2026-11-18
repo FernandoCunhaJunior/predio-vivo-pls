@@ -53,6 +53,13 @@ const BASE_ESMPU = {
   residuos: { valor: 5690, nota: '72% são orgânicos' },
 };
 
+/* Metas do Plano de Ações e Metas do PLS 2026–2028 da ESMPU (marcos por ano, em relação a 2025). */
+const METAS_ESMPU = {
+  energia: { texto: 'Meta do plano: reduzir 15% do consumo por pessoa até 2028.', marcos: [[2026, 5], [2027, 10], [2028, 15]] },
+  agua: { texto: 'Meta do plano: reduzir 15% do consumo por pessoa até 2028.', marcos: [[2026, 5], [2027, 10], [2028, 15]] },
+  residuos: { texto: 'Metas do plano: instituir o PGRS e cortar os copos descartáveis (marcos abaixo).', marcos: [[2026, 85], [2027, 87.5], [2028, 90]] },
+};
+
 /* Órgãos de referência da pesquisa. A altura dos prédios é ilustrativa. */
 const ORGAOS = [
   ['STF', 9], ['STJ', 11], ['TST', 7], ['STM', 5], ['TCU', 10], ['Senado', 12], ['Câmara', 9],

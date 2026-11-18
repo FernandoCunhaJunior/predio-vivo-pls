@@ -117,18 +117,19 @@
   var PASSOS = ['orgao', 'agua', 'energia', 'residuos'];
   function miniPredio() {
     var s = estrelas(3, 18, 380, 90) + '<rect x="60" y="120" width="250" height="300" rx="4" fill="#16263B" stroke="#2F4666"/>';
-    var nomes = ['2º andar', '1º andar', 'Térreo'];
-    for (var k = 0; k < 3; k++) {
-      var y = 120 + k * 100;
-      s += '<path d="M60 ' + (y + 100) + 'h250" stroke="#2F4666"/><text x="48" y="' + (y + 56) + '" text-anchor="end" font-size="12" fill="#A9B8CA" font-family="IBM Plex Sans, sans-serif">' + nomes[k] + '</text>';
+    var extraN = 0;
+    ANDARES.forEach(function (an, k) {
+      var y = 120 + k * 100, E = EIXOS[an[0]], acts = porEixo(an[0]);
+      s += '<path d="M60 ' + (y + 100) + 'h250" stroke="#2F4666"/><text x="48" y="' + (y + 56) + '" text-anchor="end" font-size="12" font-weight="700" fill="' + E.cor + '" font-family="IBM Plex Sans, sans-serif">' + E.curto + '</text>';
       for (var c = 0; c < 5; c++) {
-        var a = S.plano[k * 5 + c], f = '#1F3352', st = '';
-        if (a) { f = EIXOS[eixoDe(a)].cor; if (a.status === 'planejada') st = ' stroke="#F4F7FB" stroke-width="2"'; }
+        var a = acts[c], f = '#1F3352', st = '';
+        if (a) { f = E.cor; if (a.status === 'planejada') st = ' stroke="#F4F7FB" stroke-width="2"'; }
         s += '<rect x="' + (82 + c * 45) + '" y="' + (y + 28) + '" width="34" height="46" rx="3" fill="' + f + '"' + st + '/>';
       }
-    }
+      extraN += Math.max(0, acts.length - 5);
+    });
     s += '<path d="M0 420h380" stroke="#2F4666" stroke-width="2"/>';
-    var extra = S.plano.length > 15 ? ' (+' + (S.plano.length - 15) + ')' : '';
+    var extra = '';
     return '<aside class="lado"><div class="cab"><small>Seu prédio até agora</small><b>' + S.plano.length + (S.plano.length === 1 ? ' janela' : ' janelas') + extra + '</b></div>' +
       '<svg role="img" aria-label="Prédio em montagem com ' + S.plano.length + ' janelas" viewBox="0 0 380 440">' + s + '</svg>';
   }
@@ -164,28 +165,46 @@
   }
 
   // ---------------------------------------------------------------- prédio (tela principal)
-  function vagas() {
-    var v = [], ys = [150, 240, 330];
-    ys.forEach(function (y, k) { for (var i = 0; i < 7; i++) { if (k === 2 && (i === 2 || i === 3)) continue; v.push({ x: 392 + i * 58, y: y + 22 }); } });
+  // um andar por eixo: [eixo, topo do andar, vagas, etiquetas de atraso visíveis]
+  var ANDARES = [['energia', 150, 7, 2], ['residuos', 240, 7, 2], ['agua', 330, 5, 1]];
+  function porEixo(e) { return S.plano.filter(function (a) { return eixoDe(a) === e; }); }
+  function vagasDe(k) {
+    var v = [], y = ANDARES[k][1];
+    for (var i = 0; i < 7; i++) { if (k === 2 && (i === 2 || i === 3)) continue; v.push({ x: 392 + i * 58, y: y + 22 }); }
     return v;
   }
+  function corta(t, n) { return t.length > n ? t.slice(0, n - 1).replace(/\s+\S*$/, '') + '…' : t; }
   function cena() {
-    var BX = 330, BW = 500, s = '<g transform="translate(0 40)">';
+    var BX = 330, BW = 500, s = '<g transform="translate(0 40)">', etqs = '';
     s += '<rect x="0" y="420" width="1180" height="170" fill="#101D2F"/>';
     s += '<rect x="' + BX + '" y="150" width="' + BW + '" height="270" fill="#16263B" stroke="#2F4666" stroke-width="1.5"/>';
     s += '<rect x="' + BX + '" y="420" width="' + BW + '" height="80" fill="#0D1828" stroke="#2F4666" stroke-width="1.5"/>';
     s += '<path d="M330 240h500M330 330h500" stroke="#2F4666" stroke-width="1.5"/>';
-    [['2º andar', 200], ['1º andar', 290], ['Térreo', 380], ['Garagem', 466]].forEach(function (n) { s += '<text x="318" y="' + n[1] + '" text-anchor="end" font-size="12" fill="#A9B8CA" font-family="IBM Plex Sans, sans-serif">' + n[0] + '</text>'; });
+    s += '<text x="318" y="466" text-anchor="end" font-size="12" fill="#A9B8CA" font-family="IBM Plex Sans, sans-serif">Garagem</text>';
     s += '<rect x="516" y="356" width="88" height="64" rx="3" fill="#22395A" stroke="#2F4666"/><path d="M560 356v64" stroke="#2F4666"/>';
-    var v = vagas();
-    v.forEach(function (p, i) {
-      var a = S.plano[i];
-      if (!a) { s += '<rect x="' + p.x + '" y="' + p.y + '" width="46" height="46" rx="3" fill="#1F3352"/>'; return; }
-      var c = EIXOS[eixoDe(a)].cor, at = 'fill="' + c + '"';
-      if (a.status === 'planejada') at = 'fill="#1F3352" stroke="' + c + '" stroke-width="2.5" stroke-dasharray="5 4"';
-      if (a.status === 'atrasada') at = 'fill="#1F3352" stroke="#FF8A7A" stroke-width="2.5" stroke-dasharray="5 4"';
-      s += '<rect class="jan' + (selecionada === a.id ? ' sel' : '') + '" tabindex="0" role="button" aria-label="' + esc(a.titulo) + ', ' + STATUS[a.status].nome + '" data-act="abrir" data-id="' + a.id + '" x="' + p.x + '" y="' + p.y + '" width="46" height="46" rx="3" ' + at + '><title>' + esc(a.titulo) + '</title></rect>';
-      if (a.status === 'feito') s += '<path d="M' + (p.x + 13) + ' ' + (p.y + 24) + 'l7 7 13-14" fill="none" stroke="#0B1626" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>';
+    ANDARES.forEach(function (an, k) {
+      var E = EIXOS[an[0]], topo = an[1], acts = porEixo(an[0]), v = vagasDe(k), atras = 0;
+      s += '<text x="318" y="' + (topo + 44) + '" text-anchor="end" font-size="13" font-weight="700" fill="' + E.cor + '" font-family="IBM Plex Sans, sans-serif">' + E.curto + '</text>' +
+        '<text x="318" y="' + (topo + 60) + '" text-anchor="end" font-size="11" fill="#A9B8CA" font-family="IBM Plex Sans, sans-serif">' + acts.length + (acts.length === 1 ? ' ação' : ' ações') + '</text>';
+      v.forEach(function (p, i) {
+        var a = acts[i];
+        if (!a) { s += '<rect x="' + p.x + '" y="' + p.y + '" width="46" height="46" rx="3" fill="#1F3352"/>'; return; }
+        var c = E.cor, at = 'fill="' + c + '"';
+        if (a.status === 'planejada') at = 'fill="#1F3352" stroke="' + c + '" stroke-width="2.5" stroke-dasharray="5 4"';
+        if (a.status === 'atrasada') at = 'fill="#1F3352" stroke="#FF8A7A" stroke-width="2.5" stroke-dasharray="5 4"';
+        s += '<rect class="jan' + (selecionada === a.id ? ' sel' : '') + '" tabindex="0" role="button" aria-label="' + esc(a.titulo) + ', ' + STATUS[a.status].nome + '" data-act="abrir" data-id="' + a.id + '" data-dica="' + esc(a.titulo) + '|' + esc(a.resp) + ' · ' + STATUS[a.status].nome + '" x="' + p.x + '" y="' + p.y + '" width="46" height="46" rx="3" ' + at + '/>';
+        if (a.status === 'feito') s += '<path d="M' + (p.x + 13) + ' ' + (p.y + 24) + 'l7 7 13-14" fill="none" stroke="#0B1626" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>';
+        if (a.status === 'atrasada' && atras < an[3]) {
+          // etiqueta sempre visível para ação atrasada: à direita do prédio; no térreo, à esquerda
+          var cx = p.x + 23, ty = topo + 8 + atras * 30, yl = topo + 13 - atras * 5, esq = k === 2;
+          var tx = esq ? 28 : 848, tw = esq ? 222 : 286;
+          etqs += '<path d="M' + cx + ' ' + p.y + 'V' + yl + 'H' + (esq ? 258 : 840) + 'V' + (ty + 12) + 'H' + (esq ? 250 : 848) + '" fill="none" stroke="#FF8A7A" stroke-width="1.5" stroke-dasharray="3 4"/>' +
+            '<g class="etq" data-act="abrir" data-id="' + a.id + '"><rect x="' + tx + '" y="' + ty + '" width="' + tw + '" height="24" rx="6" fill="#1B2E48" stroke="#FF8A7A"/><circle cx="' + (tx + 12) + '" cy="' + (ty + 12) + '" r="4" fill="#FF8A7A"/>' +
+            '<text x="' + (tx + 22) + '" y="' + (ty + 16) + '" font-size="11.5" font-weight="600" fill="#F4F7FB" font-family="IBM Plex Sans, sans-serif">' + esc(corta(a.titulo, esq ? 36 : 46)) + '</text></g>';
+          atras++;
+        }
+      });
+      if (acts.length > v.length) s += '<text x="822" y="' + (topo + 84) + '" text-anchor="end" font-size="11" fill="#A9B8CA" font-family="IBM Plex Sans, sans-serif">+' + (acts.length - v.length) + ' na lista</text>';
     });
     s += '<rect x="772" y="112" width="52" height="38" rx="4" fill="#16263B" stroke="#5BB6FF" stroke-width="2.5"/>';
     for (var i = 0; i < 6; i++) { var x = 440 + i * 48; s += '<path d="M' + x + ' 148l10-22h30l-10 22z" fill="#1D3B63" stroke="#FFC53D" stroke-width="2" stroke-linejoin="round"/>'; }
@@ -194,28 +213,51 @@
     [195, 285, 375, 460].forEach(function (y) { s += '<circle cx="360" cy="' + y + '" r="6" fill="#0B1626" stroke="#FFC53D" stroke-width="3"/>'; });
     s += '<path d="M1180 530H812V150" fill="none" stroke="#5BB6FF" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>';
     [195, 285, 375].forEach(function (y) { s += '<circle cx="812" cy="' + y + '" r="6" fill="#0B1626" stroke="#5BB6FF" stroke-width="3"/>'; });
-    s += '<path d="M830 366h236" fill="none" stroke="#4ADE80" stroke-width="5" stroke-linecap="round" stroke-dasharray="2 11"/>';
+    s += '<path d="M830 318h236" fill="none" stroke="#4ADE80" stroke-width="5" stroke-linecap="round" stroke-dasharray="2 11"/>';
     [[916, 'Cooperativa', '#4ADE80'], [991, 'Compostagem', '#4ADE80'], [1066, 'Aterro', '#8496AD']].forEach(function (b) {
-      s += '<path d="M' + b[0] + ' 366v18" stroke="' + b[2] + '" stroke-width="5" stroke-linecap="round" stroke-dasharray="2 9"/><rect x="' + (b[0] - 22) + '" y="386" width="44" height="34" rx="4" fill="#16263B" stroke="' + b[2] + '" stroke-width="2.5"/><path d="M' + (b[0] - 26) + ' 386h52" stroke="' + b[2] + '" stroke-width="3" stroke-linecap="round"/>' +
-        '<text x="' + b[0] + '" y="440" text-anchor="middle" font-size="12" fill="#A9B8CA" font-family="IBM Plex Sans, sans-serif">' + b[1] + '</text>';
+      s += '<path d="M' + b[0] + ' 318v66" stroke="' + b[2] + '" stroke-width="5" stroke-linecap="round" stroke-dasharray="2 9"/><rect x="' + (b[0] - 22) + '" y="386" width="44" height="34" rx="4" fill="#16263B" stroke="' + b[2] + '" stroke-width="2.5"/><path d="M' + (b[0] - 26) + ' 386h52" stroke="' + b[2] + '" stroke-width="3" stroke-linecap="round"/>' +
+        '<text x="' + b[0] + '" y="438" text-anchor="middle" font-size="10.5" fill="#A9B8CA" font-family="IBM Plex Sans, sans-serif">' + b[1] + '</text>';
     });
-    [236, 262, 288].forEach(function (x) { s += '<path d="M' + x + ' 420v-14M' + x + ' 410c-8-2-10-8-10-12 6 0 10 4 10 12zM' + x + ' 406c8-2 10-8 10-12-6 0-10 4-10 12z" fill="none" stroke="#4ADE80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'; });
-    s += '<path d="M0 420h330M830 420h350" stroke="#2F4666" stroke-width="2"/></g>';
-    return '<svg class="cena" role="group" aria-label="Corte do prédio com as redes de energia, água e resíduos; cada janela é uma ação do plano" viewBox="250 60 880 550">' + estrelas(11, 40, 1180, 150) + s + '</svg>';
+    [276, 298].forEach(function (x) { s += '<path d="M' + x + ' 420v-14M' + x + ' 410c-8-2-10-8-10-12 6 0 10 4 10 12zM' + x + ' 406c8-2 10-8 10-12-6 0-10 4-10 12z" fill="none" stroke="#4ADE80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'; });
+    s += '<path d="M0 420h330M830 420h350" stroke="#2F4666" stroke-width="2"/>' + etqs + '</g>';
+    return '<svg class="cena" role="group" aria-label="Corte do prédio: um andar por eixo; cada janela é uma ação do plano" viewBox="10 80 1160 520">' + estrelas(11, 40, 1180, 150) + s + '</svg>';
   }
-  function totaisAno() {
-    var t = { energia: 0, agua: 0, residuos: 0, n: 0 };
-    Object.keys(S.lanc).forEach(function (m) { var l = S.lanc[m]; t.n++; t.energia += l.energia || 0; t.agua += l.agua || 0; t.residuos += (l.recic || 0) + (l.organ || 0) + (l.rejeito || 0); });
-    return t;
+
+  // ---- metas: marcos do plano e ritmo calculado pelos lançamentos
+  function ritmo(campo) {
+    var ms = Object.keys(S.lanc).sort(), ano = ms.length ? ms[ms.length - 1].slice(0, 4) : null; if (!ano) return null;
+    var soma = 0, n = 0;
+    ms.forEach(function (m) { if (m.slice(0, 4) === ano && S.lanc[m][campo] != null) { soma += S.lanc[m][campo]; n++; } });
+    return n ? { ano: ano, n: n, proj: soma / n * 12 } : null;
   }
-  function medidores() {
-    var t = totaisAno();
-    return Object.keys(EIXOS).map(function (k) {
-      var E = EIXOS[k], v, rot, nota;
-      if (S.exemplo) { v = BASE_ESMPU[k].valor; rot = E.curto + ' em 2025'; nota = BASE_ESMPU[k].nota; }
-      else if (t.n) { v = t[k]; rot = E.curto + ' lançada'; nota = t.n + (t.n === 1 ? ' mês lançado' : ' meses lançados'); }
-      else { v = NaN; rot = E.curto; nota = 'ainda sem lançamentos'; }
-      return '<div class="med" style="--c:' + E.cor + '"><span class="ic">' + ico(E.icone, 22) + '</span><div><small>' + rot + '</small><b>' + fmt(v) + ' <span>' + E.un + '</span></b><em>' + nota + '</em></div></div>';
+  function desvio() {
+    var ms = Object.keys(S.lanc).sort().reverse();
+    for (var i = 0; i < ms.length; i++) { var l = S.lanc[ms[i]], t = (l.recic || 0) + (l.organ || 0) + (l.rejeito || 0); if (t) return { mes: ms[i], pct: ((l.recic || 0) + (l.organ || 0)) / t * 100 }; }
+    return null;
+  }
+  function metas() {
+    return ANDARES.map(function (an) {
+      var k = an[0], E = EIXOS[k], M = S.exemplo ? METAS_ESMPU[k] : null, corpo;
+      var cab = '<div class="mcab">' + ico(E.icone, 16) + esc(E.curto) + '</div>';
+      if (!M) {
+        var r0 = k === 'residuos' ? null : ritmo(k);
+        return '<div class="meta" style="--c:' + E.cor + '">' + cab + '<p>' + (r0 ? 'Projeção de ' + r0.ano + ': ' + fmt(r0.proj) + ' ' + E.un + ' (' + r0.n + (r0.n === 1 ? ' mês lançado' : ' meses lançados') + ').' : 'Sem lançamentos ainda.') + '</p><em>Meta ainda não definida para este órgão.</em></div>';
+      }
+      var marcos = M.marcos.map(function (m) { return '<span><b>' + m[0] + '</b>−' + String(m[1]).replace('.', ',') + '%</span>'; }).join('');
+      var linha, pos = null;
+      if (k === 'residuos') {
+        var d = desvio();
+        linha = d ? '<em>' + NOMES_MES[parseInt(d.mes.slice(5), 10) - 1] + ' de ' + d.mes.slice(0, 4) + ': ' + fmt(d.pct) + '% dos resíduos pesados não foram para o aterro.</em>' : '<em class="neutro">Sem pesagem lançada: ainda não dá para medir.</em>';
+      } else {
+        var r = ritmo(k);
+        if (r) {
+          var v = (r.proj - BASE_ESMPU[k].valor) / BASE_ESMPU[k].valor * 100, marco = M.marcos.filter(function (m) { return String(m[0]) === r.ano; })[0] || M.marcos[0];
+          var ok = -v >= marco[1]; pos = Math.max(0, Math.min(1, -v / M.marcos[M.marcos.length - 1][1]));
+          linha = '<em class="' + (ok ? 'ok' : 'alerta') + '">' + (ok ? 'No ritmo' : 'Abaixo do marco') + ' de ' + marco[0] + ': projeção de ' + (v > 0 ? '+' : '−') + fmt(Math.abs(v), 1) + '% no consumo total, com ' + r.n + (r.n === 1 ? ' mês lançado' : ' meses lançados') + '.</em>';
+        } else linha = '<em class="neutro">Sem lançamentos: ainda não dá para saber o ritmo.</em>';
+      }
+      return '<div class="meta" style="--c:' + E.cor + '">' + cab + '<b>' + fmt(BASE_ESMPU[k].valor) + ' <span>' + E.un + ' em 2025</span></b><p>' + esc(M.texto) + '</p>' +
+        (k === 'residuos' ? '' : '<div class="trilho"' + (pos != null ? ' style="--p:' + (pos * 100).toFixed(0) + '%"' : '') + '><i' + (pos == null ? ' hidden' : '') + '></i></div>') + '<div class="marcos">' + marcos + '</div>' + linha + '</div>';
     }).join('');
   }
   function cartao() {
@@ -234,9 +276,18 @@
   }
   function vPredio() {
     var lista = S.plano.map(function (a) { return '<li><button data-act="abrir" data-id="' + a.id + '"><span class="bol" style="--c:' + STATUS[a.status].cor + '"></span>' + esc(a.titulo) + '</button></li>'; }).join('');
-    return topo() + '<section class="predio-grade"><div><h1>O prédio da ' + esc(S.org.nome || 'sua unidade') + ', hoje</h1><div class="meds">' + medidores() + '</div></div>' +
-      '<div>' + cena() + '</div></section><section class="predio-baixo"><div>' + cartao() + '</div>' + (lista ? '<ul class="lista-jan" aria-label="Todas as ações">' + lista + '</ul>' : '') + '</section>' +
-      '<div class="rodape-cena"><p>Janela acesa é ação em andamento, com a marca de visto já foi feita, e tracejada está planejada ou atrasada (em vermelho). O prédio mostra onde agir sem ninguém precisar ler uma tabela.</p>' +
+    var leg = '<ul class="leg" aria-label="Como ler o prédio">' +
+      '<li><svg aria-hidden="true" width="18" height="18"><rect x="1" y="1" width="16" height="16" rx="2" fill="#FFC53D"/></svg>em andamento</li>' +
+      '<li><svg aria-hidden="true" width="18" height="18"><rect x="1" y="1" width="16" height="16" rx="2" fill="#FFC53D"/><path d="M4.5 9.5l3 3 6-6.5" fill="none" stroke="#0B1626" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>feita</li>' +
+      '<li><svg aria-hidden="true" width="18" height="18"><rect x="1.5" y="1.5" width="15" height="15" rx="2" fill="#1F3352" stroke="#FFC53D" stroke-width="2" stroke-dasharray="4 3"/></svg>planejada</li>' +
+      '<li><svg aria-hidden="true" width="18" height="18"><rect x="1.5" y="1.5" width="15" height="15" rx="2" fill="#1F3352" stroke="#FF8A7A" stroke-width="2" stroke-dasharray="4 3"/></svg>atrasada</li>' +
+      '<li><svg aria-hidden="true" width="18" height="18"><rect x="1" y="1" width="16" height="16" rx="2" fill="#1F3352"/></svg>espaço livre</li></ul>';
+    return topo() + '<section class="predio-topo"><div><h1>O prédio da ' + esc(S.org.nome || 'sua unidade') + ', hoje</h1>' +
+      '<p class="como-ler"><strong>Cada andar é um eixo. Cada janela é uma ação do plano.</strong> Passe o mouse ou toque em uma janela para ver qual.</p></div>' + leg + '</section>' +
+      cena() +
+      '<section class="metas" aria-label="Metas por eixo">' + metas() + '</section>' +
+      '<section class="predio-baixo"><div>' + cartao() + '</div>' + (lista ? '<ul class="lista-jan" aria-label="Todas as ações">' + lista + '</ul>' : '') + '</section>' +
+      '<div class="rodape-cena"><p>As metas usam os marcos do plano e o que foi lançado mês a mês. Sem lançamento, o prédio não tem como dizer se o órgão está no ritmo.</p>' +
       '<div class="acoes"><a class="btn" href="#/lancar">Lançar o mês ' + ico('seta', 18) + '</a><a class="btn linha" href="#/plano">Ver o plano completo</a></div></div>';
   }
 
@@ -322,7 +373,7 @@
     else if (r.nome === 'rua') html = vRua(r.arg);
     else if (r.nome === 'lancar') html = vLancar(r.arg);
     else { r.nome = ''; html = vAbertura(); }
-    app.innerHTML = html;
+    app.innerHTML = html; dica.hidden = true;
     var itens = [['predio', 'Prédio', 'predio'], ['plano', 'Plano', 'plano'], ['lancar', 'Lançar', 'lancar'], ['rua', 'A rua', 'rua']];
     doca.hidden = r.nome === '' || r.nome === 'montar';
     doca.innerHTML = itens.map(function (i) { return '<a href="#/' + i[0] + '"' + (r.nome === i[0] ? ' aria-current="page"' : '') + '>' + ico(i[2], 19) + i[1] + '</a>'; }).join('');
@@ -376,6 +427,17 @@
     if (t.getAttribute('data-campo') === 'status') { S.plano.forEach(function (a) { if (a.id === t.getAttribute('data-id')) a.status = t.value; }); salvar(); }
     if (t.getAttribute('data-act-change') === 'mes' && t.value) location.hash = '#/lancar/' + t.value;
   });
+  var dica = document.createElement('div'); dica.className = 'dica-jan'; dica.hidden = true; dica.setAttribute('role', 'tooltip'); document.body.appendChild(dica);
+  function mostraDica(el) {
+    var d = el.getAttribute('data-dica'); if (!d) return;
+    var p = d.split('|'), r = el.getBoundingClientRect();
+    dica.innerHTML = '<b>' + esc(p[0]) + '</b><span>' + esc(p[1]) + '</span>'; dica.hidden = false;
+    var w = dica.offsetWidth, x = Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2));
+    dica.style.left = x + 'px'; dica.style.top = Math.max(8, r.top - dica.offsetHeight - 10) + 'px';
+  }
+  ['mouseover', 'focusin'].forEach(function (t) { app.addEventListener(t, function (ev) { if (ev.target.classList && ev.target.classList.contains('jan')) mostraDica(ev.target); }); });
+  ['mouseout', 'focusout'].forEach(function (t) { app.addEventListener(t, function (ev) { if (ev.target.classList && ev.target.classList.contains('jan')) dica.hidden = true; }); });
+  window.addEventListener('scroll', function () { dica.hidden = true; }, { passive: true });
   window.addEventListener('hashchange', function () { desenhar(false); app.focus({ preventScroll: true }); });
   desenhar(false);
 })();
