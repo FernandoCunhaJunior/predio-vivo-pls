@@ -48,6 +48,7 @@
     sol: '<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"/>',
     lixeira: '<path d="M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13"/>',
     mais: '<path d="M12 5v14M5 12h14"/>',
+    lapis: '<path d="M4 20l1-4L16 5l3 3L8 19z"/><path d="M14 7l3 3"/>',
     imprimir: '<path d="M7 8V4h10v4"/><rect x="4" y="8" width="16" height="8" rx="1.5"/><path d="M7 14h10v6H7z"/>',
     aviso: '<path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17.5v.01"/>',
     pesquisa: '<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.5-4.5"/>',
@@ -350,7 +351,7 @@
       return '<section class="grupo" style="--c:' + E.cor + '"><h2>' + ico(E.icone, 20) + esc(E.nome) + ' <span class="suave" style="font-size:14px;font-weight:500">' + itens.length + '</span></h2>' + (linhas || '<div class="vazio">Nenhuma ação neste eixo. <a href="#/rua">Veja o que os vizinhos fazem.</a></div>') + '</section>';
     }).join('');
     return topo() + '<section class="pagina"><h1>O plano</h1><p class="lead">É o mesmo prédio, em forma de lista: as ações do PLS com responsável, situação e indicador sugerido. Edite aqui e as janelas mudam.</p>' +
-      '<div class="acoes"><a class="btn" href="#/imprimir">Montar e imprimir ' + ico('seta', 18) + '</a><a class="btn linha" href="#/pesquisa">Buscar boas práticas</a><button class="btn linha" data-act="baixar">Baixar o plano (JSON)</button><button class="btn linha" data-act="exemplo">Recarregar o exemplo da ESMPU</button></div>' + grupos + '</section>';
+      '<div class="acoes"><a class="btn" href="#/imprimir">Montar e imprimir ' + ico('seta', 18) + '</a><a class="btn linha" href="#/pesquisa">Buscar boas práticas</a><a class="btn linha" href="#/relatorio">Relatório do ano</a><button class="btn linha" data-act="baixar">Baixar o plano (JSON)</button><button class="btn linha" data-act="exemplo">Recarregar o exemplo da ESMPU</button></div>' + grupos + '</section>';
   }
 
   // ---------------------------------------------------------------- a rua (o que falta no meu prédio)
@@ -365,7 +366,8 @@
     if (!sel) return topo() + '<section class="pagina"><h1>A rua</h1><p class="lead">Seu prédio já tem os 17 tipos de ação que a pesquisa encontrou.</p></section>' + ruaReal(function () { return true; }, false);
     var E = EIXOS[sel.eixo], m = quantos(sel);
     var li = l.map(function (c) { return '<li><button style="--c:' + EIXOS[c.eixo].cor + '" aria-pressed="' + (c.id === sel.id) + '" data-act="lacuna" data-cat="' + c.id + '"><i></i><span>' + esc(c.nome) + '</span><em>' + c.registros + '</em></button></li>'; }).join('');
-    return topo() + '<section class="rua-grade"><div><h1 style="font-size:38px;font-weight:800">A rua</h1><p class="suave" style="font-size:14px;line-height:1.45;margin:8px 0 0">' + l.length + (l.length === 1 ? ' tipo de ação que a pesquisa encontrou' : ' tipos de ação que a pesquisa encontrou') + ' e o seu prédio ainda não tem. Escolha um para ver quem já acendeu.</p><ul class="lacunas">' + li + '</ul></div>' +
+    return topo() + '<div class="modo" role="group" aria-label="Modo da rua"><a href="#/rua" aria-current="page">O que falta no meu prédio</a><a href="#/rua/comparar">Como estou perto dos outros</a></div>' +
+      '<section class="rua-grade"><div><h1 style="font-size:38px;font-weight:800">A rua</h1><p class="suave" style="font-size:14px;line-height:1.45;margin:8px 0 0">' + l.length + (l.length === 1 ? ' tipo de ação que a pesquisa encontrou' : ' tipos de ação que a pesquisa encontrou') + ' e o seu prédio ainda não tem. Escolha um para ver quem já acendeu.</p><ul class="lacunas">' + li + '</ul></div>' +
       '<div><div class="rua-cab"><div><div class="sobre" style="color:' + E.cor + '">' + esc(E.curto) + '</div><h2>' + esc(sel.nome) + '</h2><p>' +
       (sel.registros ? sel.registros + (sel.registros === 1 ? ' janela acesa em ' : ' janelas acesas em ') + m + (m === 1 ? ' prédio. ' : ' prédios. ') : 'Nenhum órgão desta base registrou esse tipo. ') + esc(sel.oficial) + '.</p></div>' +
       '<div class="acoes">' + (sel.registros ? '<button class="btn" data-act="verpraticas" data-cat="' + sel.id + '">Ver as práticas ' + ico('seta', 18) + '</button>' : '') + '<button class="btn linha" data-act="acender" data-cat="' + sel.id + '">Acender no meu prédio</button></div></div>' +
@@ -463,11 +465,224 @@
       '<div class="campo"><label for="i-ciclo">Ciclo do plano</label><input id="i-ciclo" data-campo="ciclo" value="' + esc(o.ciclo || '') + '" placeholder="por exemplo: 2027 a 2029"></div>' +
       '<fieldset class="opcoes"><legend>O que entra no documento</legend>' +
       '<label><input type="checkbox" data-imp="origem"' + (op.origem ? ' checked' : '') + '> De onde veio cada ação</label><label><input type="checkbox" data-imp="indicador"' + (op.indicador ? ' checked' : '') + '> Indicador sugerido para cada ação</label></fieldset>' +
+      '<a class="regua-link" href="#/regua">' + ico('plano', 20) + '<span><b>' + (op.regua && REGUAS[op.regua] ? 'Anexo incluído: ' + REGUAS[op.regua].pil : 'Conferir com a norma do seu órgão') + '</b>Veja quais temas da norma o plano cobre e leve a correspondência como anexo.</span></a>' +
       '<div class="acoes"><button class="btn" data-act="imprimir">' + ico('imprimir', 18) + 'Imprimir ou salvar PDF</button><a class="btn linha" href="#/plano">Preencher responsáveis</a></div></div>' +
       '<article class="papel" aria-label="Prévia do plano para impressão"><div class="p-sobre">Plano de Logística Sustentável</div><div class="p-org" id="p-org">' + (esc(o.nome) || '[NOME DO ÓRGÃO]') + '</div>' +
       '<div class="p-linha"><span id="p-ciclo">Ciclo ' + (esc(o.ciclo) || '[ANO INICIAL] a [ANO FINAL]') + '</span> · ' + (comEixo.length ? 'eixos ' + comEixo.map(function (e) { return EIXOS[e].curto.toLowerCase(); }).join(', ') + ' · ' : '') + n + (n === 1 ? ' ação' : ' ações') + '</div>' +
       (secoes || '<p class="p-vazio">Nenhuma ação escolhida ainda.</p>') +
-      '<div class="p-pe">Ações escolhidas com apoio do levantamento de ' + BASE.length + ' iniciativas de ' + predios().length + ' órgãos e unidades, feito pelo grupo de pesquisa “Ministério Público da União Verde” (ESMPU, Edital nº 162/2024).</div></article></section>';
+      '<div class="p-pe">Ações escolhidas com apoio do levantamento de ' + BASE.length + ' iniciativas de ' + predios().length + ' órgãos e unidades, feito pelo grupo de pesquisa “Ministério Público da União Verde” (ESMPU, Edital nº 162/2024).</div>' +
+      (op.regua && REGUAS[op.regua] ? '<div class="p-anexo">' + anexoRegua(op.regua) + '</div>' : '') + '</article></section>';
+  }
+
+  // ---------------------------------------------------------------- a rua por baixo (comparar consumo)
+  var C = { eixo: 'energia', base: 'pessoa' };
+  var VIZ = { // consumo anual dos 12 vizinhos de exemplo
+    energia: { pessoa: [1600, 1800, 2000, 2100, 2400, 2600, 2700, 2900, 3400, 3700, 4100, 4600], m2: [48, 55, 61, 66, 72, 79, 85, 92, 104, 115, 128, 141] },
+    agua: { pessoa: [6.1, 7.4, 8.2, 9, 9.8, 11, 12.3, 13.5, 15.2, 17, 19.4, 22], m2: [0.21, 0.26, 0.3, 0.34, 0.38, 0.43, 0.48, 0.55, 0.63, 0.72, 0.84, 0.97] },
+    residuos: { pessoa: [12, 15, 17, 20, 23, 26, 29, 33, 38, 44, 51, 60], m2: [0.5, 0.6, 0.7, 0.9, 1, 1.2, 1.3, 1.5, 1.8, 2.1, 2.5, 3] }
+  };
+  function unComp() {
+    var u = { energia: { pessoa: ['MWh por pessoa', 1000, 1], m2: ['kWh por m²', 1, 0] }, agua: { pessoa: ['m³ por pessoa', 1, 1], m2: ['litros por m²', 0.001, 0] }, residuos: { pessoa: ['kg por pessoa', 1, 0], m2: ['kg por m²', 1, 1] } };
+    return u[C.eixo][C.base];
+  }
+  function anual(k) { // consumo do ano: projeção dos lançamentos; sem eles, o ano-base do exemplo
+    var ms = Object.keys(S.lanc).sort(), ano = ms.length ? ms[ms.length - 1].slice(0, 4) : null, soma = 0, n = 0;
+    if (ano) ms.forEach(function (m) {
+      if (m.slice(0, 4) !== ano) return; var l = S.lanc[m], v = k === 'residuos' ? ((l.recic || 0) + (l.organ || 0) + (l.rejeito || 0)) || null : l[k];
+      if (v != null) { soma += v; n++; }
+    });
+    if (n) return { v: soma / n * 12, de: 'projeção de ' + ano + ', com ' + n + (n === 1 ? ' mês lançado' : ' meses lançados') };
+    if (S.exemplo) return { v: BASE_ESMPU[k].valor, de: 'consumo de 2025' };
+    return null;
+  }
+  function vizinhos() { // planos de exemplo: quem gasta menos tem mais ações
+    return 'ABCDEFGHIJKL'.split('').map(function (L, i) {
+      var r = rng(hashTxt('viz' + L)), cats = CATALOGO.filter(function (c) { return r() < (/-monit$/.test(c.id) ? 1.15 - i * 0.1 : 0.85 - i * 0.055); }).map(function (c) { return c.id; });
+      return { nome: L, cats: cats, v: VIZ[C.eixo][C.base][i] };
+    });
+  }
+  function vComparar() {
+    var E = EIXOS[C.eixo], un = unComp(), a = anual(C.eixo), den = num(C.base === 'pessoa' ? S.org.pessoas : S.org.area), meu = a && den > 0 ? a.v / den : null;
+    var viz = vizinhos(), fila = viz.map(function (z) { return { nome: z.nome, cats: z.cats, v: z.v }; });
+    if (meu != null) fila.push({ eu: true, v: meu });
+    fila.sort(function (x, y) { return x.v - y.v; });
+    if (meu == null) fila.push({ eu: true, v: null });
+    function nv(v) { return (v / un[1]).toFixed(un[2]).replace('.', ','); }
+    var abaixo = meu == null ? 0 : viz.filter(function (z) { return z.v < meu; }).length;
+    var oq = { energia: 'energia', agua: 'água', residuos: 'resíduos' }[C.eixo], por = C.base === 'pessoa' ? 'por pessoa' : 'por m²';
+    var tit = meu == null ? 'Falta um número para o seu prédio entrar na fila.' : abaixo === 0 ? 'Ninguém na rua ' + (C.eixo === 'residuos' ? 'gera menos ' : 'gasta menos ') + oq + ' ' + por + ' que você.' :
+      'Você ' + (C.eixo === 'residuos' ? 'gera mais ' : 'gasta mais ') + oq + ' ' + por + ' que ' + abaixo + ' dos 12 vizinhos.';
+    var sub = meu == null ? (a ? 'Informe ' + (C.base === 'pessoa' ? 'quantas pessoas usam o prédio' : 'a área do prédio') + ' e a conta sai sozinha.' : 'Lance pelo menos um mês de ' + oq + ' na tela Lançar.') :
+      'A rua está em fila, de quem gasta menos para quem gasta mais. O número é o consumo do ano em ' + un[0] + ' (o seu: ' + a.de + ').';
+    // desenho
+    var chao = 176, x0 = 96, vaga = 50, bw = 34, maxv = Math.max.apply(null, fila.map(function (f) { return f.v || 0; })), esc2 = 150 / maxv, s = '', f = ' font-family="IBM Plex Sans, sans-serif"';
+    s += '<text x="0" y="' + (chao - 40) + '" font-size="11" font-weight="700" letter-spacing="1" fill="#A9B8CA"' + f + '>EM CIMA</text><text x="0" y="' + (chao - 25) + '" font-size="11.5" fill="#A9B8CA"' + f + '>o que cada</text><text x="0" y="' + (chao - 11) + '" font-size="11.5" fill="#A9B8CA"' + f + '>um faz</text>' +
+      '<text x="0" y="' + (chao + 28) + '" font-size="11" font-weight="700" letter-spacing="1" fill="' + E.cor + '"' + f + '>EMBAIXO</text><text x="0" y="' + (chao + 43) + '" font-size="11.5" fill="#A9B8CA"' + f + '>o que cada</text><text x="0" y="' + (chao + 57) + '" font-size="11.5" fill="#A9B8CA"' + f + '>um ' + (C.eixo === 'residuos' ? 'gera' : 'gasta') + '</text>';
+    fila.forEach(function (p, i) {
+      var x = x0 + i * vaga, bx = x + (vaga - bw) / 2, cores = (p.eu ? S.plano.map(function (q) { return EIXOS[eixoDe(q)].cor; }) : p.cats.map(function (id) { return EIXOS[cat(id).eixo].cor; }));
+      var andares = Math.max(2, Math.ceil(cores.length / 2)), h = andares * 15 + 10;
+      s += '<rect x="' + bx + '" y="' + (chao - h) + '" width="' + bw + '" height="' + h + '" rx="2.5" fill="#16263B" stroke="' + (p.eu ? '#FFC53D' : '#7C93B3') + '" stroke-width="' + (p.eu ? 2.5 : 1) + '"/>';
+      for (var j = 0; j < andares * 2; j++) s += '<rect x="' + (bx + 6 + (j % 2) * 12) + '" y="' + (chao - h + 7 + Math.floor(j / 2) * 15) + '" width="9.5" height="9.5" rx="1.5" fill="' + (cores[j] || '#1F3352') + '"/>';
+      s += '<text x="' + (x + vaga / 2) + '" y="' + (chao - h - 8) + '" text-anchor="middle" font-size="' + (p.eu ? 11.5 : 10.5) + '" font-weight="' + (p.eu ? 700 : 500) + '" fill="' + (p.eu ? '#FFC53D' : '#A9B8CA') + '"' + f + '>' + (p.eu ? 'o seu' : p.nome) + '</text>';
+      if (p.v == null) { s += '<rect x="' + (bx + 4) + '" y="' + (chao + 6) + '" width="' + (bw - 8) + '" height="60" rx="3" fill="none" stroke="#FFC53D" stroke-width="1.5" stroke-dasharray="3 3"/><text x="' + (x + vaga / 2) + '" y="' + (chao + 84) + '" text-anchor="middle" font-size="13" font-weight="700" fill="#FFC53D"' + f + '>?</text>'; return; }
+      var d = Math.max(4, p.v * esc2);
+      s += '<rect x="' + (bx + 4) + '" y="' + (chao + 6) + '" width="' + (bw - 8) + '" height="' + d.toFixed(0) + '" rx="3" fill="' + E.cor + '" opacity="' + (p.eu ? 1 : meu != null && p.v > meu ? 0.5 : 0.85) + '"/>' +
+        '<text x="' + (x + vaga / 2) + '" y="' + (chao + 6 + d + 16).toFixed(0) + '" text-anchor="middle" font-size="12" font-weight="' + (p.eu ? 700 : 500) + '" fill="' + (p.eu ? '#FFC53D' : '#F4F7FB') + '"' + f + '>' + nv(p.v) + '</text>';
+      if (p.eu && S.exemplo && C.eixo !== 'residuos') {
+        var alvo = p.v * 0.85, ya = chao + 6 + alvo * esc2;
+        s += '<path d="M' + (bx - 3) + ' ' + ya.toFixed(0) + 'h' + (bw + 6) + '" stroke="#F4F7FB" stroke-width="2.5"/><text x="' + (x + vaga / 2) + '" y="' + (chao + 6 + d + 32).toFixed(0) + '" text-anchor="middle" font-size="11.5" font-weight="600" fill="#F4F7FB"' + f + '>meta 2028:</text>' +
+          '<text x="' + (x + vaga / 2) + '" y="' + (chao + 6 + d + 46).toFixed(0) + '" text-anchor="middle" font-size="11.5" font-weight="600" fill="#F4F7FB"' + f + '>' + nv(alvo) + '</text>';
+      }
+    });
+    var vs = viz.map(function (z) { return z.v; }).sort(function (x, y) { return x - y; }), med = (vs[5] + vs[6]) / 2, ym = chao + 6 + med * esc2;
+    s += '<path d="M86 ' + chao + 'H760" stroke="#2F4666" stroke-width="2"/><path d="M86 ' + ym.toFixed(0) + 'H760" stroke="#A9B8CA" stroke-width="1" stroke-dasharray="2 5"/>' +
+      '<text x="0" y="' + (ym - 3).toFixed(0) + '" font-size="11.5" fill="#A9B8CA"' + f + '>metade da rua</text><text x="0" y="' + (ym + 11).toFixed(0) + '" font-size="11.5" fill="#A9B8CA"' + f + '>' + (C.eixo === 'residuos' ? 'gera' : 'gasta') + ' até aqui</text>';
+    // o que os 4 mais econômicos têm em comum
+    var top4 = viz.slice(0, 4), comuns = CATALOGO.filter(function (c) { return c.eixo === C.eixo; }).map(function (c) { return { c: c, n: top4.filter(function (z) { return z.cats.indexOf(c.id) >= 0; }).length }; })
+      .filter(function (o) { return o.n >= 2; }).sort(function (x, y) { return y.n - x.n || y.c.registros - x.c.registros; }).slice(0, 3);
+    var falta = comuns.filter(function (o) { return !S.plano.some(function (q) { return q.cat === o.c.id; }) && o.c.registros; })[0];
+    var li = comuns.map(function (o) {
+      var tem = S.plano.some(function (q) { return q.cat === o.c.id; });
+      return '<li><b>' + o.n + ' de 4</b><span>têm “' + esc(o.c.nome) + '” no plano<em class="' + (tem ? 'ok' : 'falta') + '">' + ico(tem ? 'check' : 'aviso', 14) + (tem ? 'Você já tem essa ação' : 'Você ainda não tem essa ação') + '</em></span></li>';
+    }).join('');
+    var pede = meu == null && a ? '<div class="pede"><label for="c-den">' + (C.base === 'pessoa' ? 'Quantas pessoas usam o prédio, em média?' : 'Qual a área do prédio, em m²?') + '</label><div><input id="c-den" inputmode="numeric" data-campo="' + (C.base === 'pessoa' ? 'pessoas' : 'area') + '" value="' + esc(C.base === 'pessoa' ? S.org.pessoas : S.org.area || '') + '"><button class="btn" data-act="redesenhar">Entrar na fila</button></div></div>' :
+      meu == null ? '<div class="pede"><a class="btn" href="#/lancar">Lançar um mês ' + ico('seta', 18) + '</a></div>' : '';
+    return topo() + '<div class="modo" role="group" aria-label="Modo da rua"><a href="#/rua">O que falta no meu prédio</a><a href="#/rua/comparar" aria-current="page">Como estou perto dos outros</a></div>' +
+      '<span class="tag-ex">Vizinhos e consumo deles: números de exemplo</span>' +
+      '<section class="comp-topo"><h1>' + tit + '</h1><p>' + sub + '</p>' + pede + '</section>' +
+      '<div class="pils" role="group" aria-label="Eixo e medida">' + ORD.map(function (e) { return '<button class="pil" style="--c:' + EIXOS[e].cor + '" aria-pressed="' + (C.eixo === e) + '" data-act="ceixo" data-v="' + e + '">' + ico(EIXOS[e].icone, 16) + esc(EIXOS[e].curto) + '</button>'; }).join('') +
+      '<i class="sep" aria-hidden="true"></i><button class="pil" style="--c:#F4F7FB" aria-pressed="' + (C.base === 'pessoa') + '" data-act="cbase" data-v="pessoa">por pessoa</button><button class="pil" style="--c:#F4F7FB" aria-pressed="' + (C.base === 'm2') + '" data-act="cbase" data-v="m2">por m²</button></div>' +
+      '<section class="comp-grade"><svg class="rua-svg" role="img" aria-label="Prédios em fila do que gasta menos para o que gasta mais. Em cima do chão, as ações de cada um; embaixo, o consumo em ' + un[0] + '." viewBox="0 0 770 400">' + s + '</svg>' +
+      '<aside><h2>O que os 4 que menos gastam têm em comum</h2><p class="suave">Planos de exemplo. As práticas que o botão abre são reais, da base da pesquisa.</p><ul class="comum">' + li + '</ul>' +
+      (falta ? '<button class="btn" style="width:100%;justify-content:center" data-act="verpraticas" data-cat="' + falta.c.id + '">Ver práticas de “' + esc(falta.c.nome) + '” ' + ico('seta', 18) + '</button>' : '<a class="btn" style="width:100%;justify-content:center" href="#/pesquisa">Ver as boas práticas ' + ico('seta', 18) + '</a>') +
+      '<p class="suave" style="font-size:12px;margin-top:12px">Na versão completa os números viriam dos lançamentos de cada órgão e, para os tribunais, da base pública do Balanço da Sustentabilidade do CNJ.</p></aside></section>';
+  }
+
+  // ---------------------------------------------------------------- a régua da norma
+  var REGUAS = {
+    cnj: { pil: 'Judiciário · CNJ 400', doc: 'Resolução CNJ nº 400/2021', frase: 'temas que o CNJ mede', nota: 'Temas 2 a 20 do Anexo da Resolução CNJ nº 400/2021 (versão compilada de 2025).',
+      temas: ['Papel', 'Copos descartáveis', 'Água envasada em embalagem plástica', 'Impressão', 'Energia elétrica', 'Água e esgoto', 'Gestão de resíduos', 'Reformas e construções', 'Limpeza', 'Vigilância', 'Telefonia', 'Veículos', 'Combustível', 'Apoio ao serviço administrativo', 'Aquisições e contratações', 'Qualidade de vida', 'Capacitação em sustentabilidade', 'Equidade e diversidade', 'Programa Justiça Carbono Zero'] },
+    pdls: { pil: 'Executivo · PDLS', doc: 'Portaria Seges/ME nº 8.678/2021', frase: 'eixos do Plano Diretor de Logística Sustentável', nota: 'Seis eixos temáticos do Caderno de Logística do PDLS (MGI, versão 1.1, 2024).',
+      temas: ['Racionalização e consumo consciente de bens e serviços', 'Racionalização da ocupação dos espaços físicos', 'Identificação dos objetos de menor impacto ambiental', 'Fomento à inovação no mercado', 'Inclusão dos negócios de impacto nas contratações públicas', 'Divulgação, conscientização e capacitação'] },
+    a3p: { pil: 'A3P · 6 eixos', doc: 'Agenda Ambiental na Administração Pública (A3P)', frase: 'eixos da A3P', nota: 'Seis eixos temáticos do programa A3P, do Ministério do Meio Ambiente.',
+      temas: ['Uso racional dos recursos naturais e bens públicos', 'Gestão adequada dos resíduos gerados', 'Qualidade de vida no ambiente de trabalho', 'Sensibilização e capacitação dos servidores', 'Compras públicas sustentáveis', 'Construções sustentáveis'] }
+  };
+  var RG = { escrevendo: null };
+  function temaDe(id, a) {
+    var t = semAcento(a.titulo), e = eixoDe(a), T = REGUAS[id].temas;
+    if (id === 'cnj') {
+      if (/copo/.test(t)) return T[1]; if (/papel|papeis|resma/.test(t)) return T[0]; if (/impress/.test(t)) return T[3]; if (/envasad|garraf|agua mineral/.test(t)) return T[2];
+      return e === 'energia' ? T[4] : e === 'agua' ? T[5] : T[6];
+    }
+    if (id === 'pdls') return /-compras$/.test(a.cat) ? T[2] : /-camp$/.test(a.cat) ? T[5] : T[0];
+    return /-compras$/.test(a.cat) ? T[4] : /-camp$/.test(a.cat) ? T[3] : e === 'residuos' ? T[1] : T[0];
+  }
+  function porTema(id) {
+    var ex = S.extras || [];
+    return REGUAS[id].temas.map(function (tema) {
+      return { tema: tema, acoes: S.plano.filter(function (a) { return temaDe(id, a) === tema; }), extras: ex.filter(function (x) { return x.regua === id && x.tema === tema; }) };
+    });
+  }
+  function anexoRegua(id) {
+    var R = REGUAS[id], pt = porTema(id), cob = pt.filter(function (o) { return o.acoes.length + o.extras.length; }).length, tot = 0;
+    var linhas = pt.map(function (o) {
+      var itens = o.acoes.map(function (a) { return esc(a.titulo) + (a.origem ? ' (inspirada no plano de: ' + esc(a.origem) + ')' : ''); }).concat(o.extras.map(function (x) { return esc(x.titulo); }));
+      tot += itens.length;
+      return '<tr><td><b>' + esc(o.tema) + '</b></td><td>' + (itens.length ? itens.join(' · ') : '<span class="p-sem">Sem ação neste plano</span>') + '</td></tr>';
+    }).join('');
+    return '<div class="p-sobre">Plano de Logística Sustentável · ' + (esc(S.org.nome) || '[NOME DO ÓRGÃO]') + ' · anexo</div><div class="p-org" style="font-size:21px">Correspondência com: ' + esc(R.doc) + '</div>' +
+      '<div class="p-linha">' + cob + ' de ' + R.temas.length + ' temas com ação · ' + tot + (tot === 1 ? ' ação' : ' ações') + '</div>' +
+      '<table><thead><tr><th style="width:32%">Tema da norma</th><th>Ações deste plano</th></tr></thead><tbody>' + linhas + '</tbody></table>' +
+      '<div class="p-pe">' + esc(R.nota) + ' A correspondência entre ação e tema é uma sugestão do Prédio Vivo e deve ser conferida pelo órgão.</div>';
+  }
+  function vRegua(id) {
+    if (!REGUAS[id]) id = (S.imp && S.imp.regua) || 'cnj';
+    var R = REGUAS[id], pt = porTema(id), cob = pt.filter(function (o) { return o.acoes.length + o.extras.length; }).length, dentro = S.imp && S.imp.regua === id;
+    var li = pt.map(function (o, i) {
+      var n = o.acoes.length + o.extras.length;
+      var jan = o.acoes.map(function (a) { return '<i style="background:' + EIXOS[eixoDe(a)].cor + '" title="' + esc(a.titulo) + '"></i>'; }).join('') + o.extras.map(function (x) { return '<i class="ex" title="' + esc(x.titulo) + '"></i>'; }).join('') || '<i class="vz"></i>';
+      var lado = RG.escrevendo === i ? '' : '<span class="qt">' + (n ? n + (n === 1 ? ' ação' : ' ações') : '') + '</span><button class="lk" data-act="rescrever" data-i="' + i + '">' + ico('lapis', 15) + (n ? 'Mais uma' : 'Escrever uma ação') + '</button>';
+      var form = RG.escrevendo === i ? '<div class="novo"><label for="r-novo" class="oculto">Ação para o tema ' + esc(o.tema) + '</label><input id="r-novo" placeholder="Escreva a ação com as suas palavras"><button class="btn peq" data-act="rsalvar" data-i="' + i + '" data-r="' + id + '">Acrescentar</button><button class="lk" data-act="rescrever" data-i="-1">Cancelar</button></div>' : '';
+      var exl = o.extras.map(function (x) { return '<div class="exl"><span>' + esc(x.titulo) + '</span><button class="rm" aria-label="Remover: ' + esc(x.titulo) + '" data-act="rremover" data-id="' + x.id + '">' + ico('lixeira', 16) + '</button></div>'; }).join('');
+      return '<li class="' + (n ? 'on' : '') + '"><div class="ln"><span class="nm">' + esc(o.tema) + '</span><span class="js">' + jan + '</span>' + lado + '</div>' + form + exl + '</li>';
+    }).join('');
+    return '<header class="topo">' + marca() + '<a href="#/imprimir" style="font-size:14px;font-weight:600">Voltar ao plano para imprimir</a></header>' +
+      '<section class="imp-grade regua-grade"><div><h1 class="t-regua">Seu plano cobre ' + cob + ' dos ' + R.temas.length + ' ' + R.frase + '.</h1>' +
+      '<p class="lead" style="margin:8px 0 12px;font-size:14.5px;color:var(--suave)">Escolha a régua do seu órgão. Cada andar é um tema da norma; as janelas são as ações do seu plano que respondem a ele.</p>' +
+      '<div class="pils" role="group" aria-label="Régua">' + Object.keys(REGUAS).map(function (k) { return '<a class="pil" style="--c:#F4F7FB" href="#/regua/' + k + '"' + (k === id ? ' aria-current="page"' : '') + '>' + REGUAS[k].pil + '</a>'; }).join('') + '</div>' +
+      '<ul class="regua">' + li + '</ul>' +
+      '<p class="suave" style="font-size:12.5px;line-height:1.45;margin:10px 0 0">Andares apagados são temas que a pesquisa não levantou (ela cobre energia, água e resíduos). A ação pode ser escrita à mão; janela branca é ação escrita por você. ' + esc(R.nota) + '</p></div>' +
+      '<div><article class="papel" style="min-height:0" aria-label="Prévia do anexo de correspondência com a norma">' + anexoRegua(id) + '</article>' +
+      '<div class="acoes" style="margin-top:16px;align-items:center"><button class="btn' + (dentro ? ' linha' : '') + '" data-act="rincluir" data-r="' + id + '">' + ico(dentro ? 'check' : 'imprimir', 18) + (dentro ? 'Incluído no PLS impresso (tirar)' : 'Incluir no PLS impresso') + '</button><span class="suave" style="font-size:12.5px">Vira a última página do documento.</span></div></div></section>';
+  }
+
+  // ---------------------------------------------------------------- o ano em uma página (relatório de desempenho)
+  function somaAno(k, ano) {
+    var soma = 0, n = 0;
+    Object.keys(S.lanc).forEach(function (m) {
+      if (m.slice(0, 4) !== ano) return; var l = S.lanc[m], v = k === 'residuos' ? ((l.recic || 0) + (l.organ || 0) + (l.rejeito || 0)) || null : l[k];
+      if (v != null) { soma += v; n++; }
+    });
+    return { soma: soma, n: n };
+  }
+  function vRelatorio(ano) {
+    var anos = {}; Object.keys(S.lanc).forEach(function (m) { anos[m.slice(0, 4)] = 1; }); anos[mesAtual().slice(0, 4)] = 1;
+    anos = Object.keys(anos).sort(); if (anos.indexOf(ano) < 0) ano = anos[anos.length - 1];
+    var op = S.rel || (S.rel = { acoes: true, metas: true, just: true }), n = S.plano.length, ct = { feito: 0, andamento: 0, planejada: 0, atrasada: 0 };
+    S.plano.forEach(function (a) { ct[a.status] = (ct[a.status] || 0) + 1; });
+    // mini prédio
+    var mp = '', y = 12, maxc = 1;
+    ORD.forEach(function (e) {
+      var acs = S.plano.filter(function (a) { return eixoDe(a) === e; }); maxc = Math.max(maxc, acs.length);
+      acs.forEach(function (a, k) {
+        var x = 12 + k * 19, cor = EIXOS[e].cor;
+        if (a.status === 'feito') mp += '<rect x="' + x + '" y="' + y + '" width="14" height="14" rx="2" fill="' + cor + '"/><path d="M' + (x + 3) + ' ' + (y + 7.5) + 'l3 3 5-6" fill="none" stroke="#10202F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+        else if (a.status === 'andamento') mp += '<rect x="' + x + '" y="' + y + '" width="14" height="14" rx="2" fill="' + cor + '"/>';
+        else if (a.status === 'atrasada') mp += '<rect x="' + (x + 1) + '" y="' + (y + 1) + '" width="12" height="12" rx="2" fill="none" stroke="#C0392B" stroke-width="2"/>';
+        else mp += '<rect x="' + (x + 1) + '" y="' + (y + 1) + '" width="12" height="12" rx="2" fill="none" stroke="#9AA7B5" stroke-width="1.5" stroke-dasharray="3 2"/>';
+      });
+      y += 22;
+    });
+    var pw = Math.max(90, 24 + maxc * 19);
+    var predio = '<svg aria-hidden="true" width="' + pw + '" height="86" viewBox="0 0 ' + pw + ' 86"><rect x="2" y="2" width="' + (pw - 4) + '" height="82" rx="4" fill="#F4F7FB" stroke="#1B2430" stroke-width="1.5"/>' + mp + '</svg>';
+    // metas
+    var okM = 0, comM = 0, linhasM = ORD.map(function (e) {
+      var E = EIXOS[e], sa = somaAno(e, ano), base = S.exemplo ? BASE_ESMPU[e].valor : null, res;
+      if (!sa.n) res = '<span class="p-sem">Sem lançamentos em ' + ano + '</span>';
+      else if (e === 'residuos') {
+        var rec = 0, tot = 0; Object.keys(S.lanc).forEach(function (m) { if (m.slice(0, 4) === ano) { var l = S.lanc[m]; rec += (l.recic || 0) + (l.organ || 0); tot += (l.recic || 0) + (l.organ || 0) + (l.rejeito || 0); } });
+        res = '<b>' + fmt(rec / tot * 100) + '% não foram para o aterro</b><small>A meta do plano para resíduos é outra (PGRS e copos) e não se mede por aqui.</small>';
+      } else if (base == null) res = '<span class="p-sem">Sem ano-base para comparar</span>';
+      else {
+        var proj = sa.soma / sa.n * 12, v = (proj - base) / base * 100, marco = S.exemplo ? METAS_ESMPU[e].marcos.filter(function (m) { return String(m[0]) === ano; })[0] : null;
+        if (marco) { comM++; var ok = -v >= marco[1]; if (ok) okM++;
+          res = '<b style="color:' + (ok ? '#1E7B3C' : '#C0392B') + '">' + (v > 0 ? '+' : '−') + fmt(Math.abs(v), 1) + '% · meta −' + String(marco[1]).replace('.', ',') + '% · ' + (sa.n < 12 ? (ok ? 'no ritmo' : 'fora do ritmo') : (ok ? 'cumprida' : 'não cumprida')) + '</b>';
+        } else res = '<b>' + (v > 0 ? '+' : '−') + fmt(Math.abs(v), 1) + '% sobre 2025</b>';
+        if (sa.n < 12) res += '<small>Projeção do ano com ' + sa.n + (sa.n === 1 ? ' mês lançado' : ' meses lançados') + '; compara o consumo total, não por pessoa.</small>';
+      }
+      return '<tr><td><b><span class="q" style="background:' + E.cor + '"></span>' + esc(E.nome) + '</b></td><td>' + (base != null ? fmt(base) + ' ' + E.un : '—') + '</td><td><b>' + (sa.n ? fmt(sa.soma) + ' ' + E.un : '—') + '</b>' + (sa.n && sa.n < 12 ? '<small>' + sa.n + ' de 12 meses</small>' : '') + '</td><td>' + res + '</td></tr>';
+    }).join('');
+    var linhasA = S.plano.slice().sort(function (a, b) { return ORD.indexOf(eixoDe(a)) - ORD.indexOf(eixoDe(b)); }).map(function (a) {
+      var cor = a.status === 'feito' ? '#1E7B3C' : a.status === 'atrasada' ? '#C0392B' : '#1B2430';
+      return '<tr><td><b>' + esc(a.titulo) + '</b>' + (a.origem ? '<small>Inspirada no plano de: ' + esc(a.origem) + '</small>' : '') + (op.just && a.status === 'atrasada' ? '<small>Justificativa: ' + (a.just ? esc(a.just) : '[JUSTIFICATIVA DO RESPONSÁVEL]') + '</small>' : '') + '</td><td>' + (a.resp && a.resp !== 'A definir' ? esc(a.resp) : '<i></i>') + '</td><td style="font-weight:700;white-space:nowrap;color:' + cor + '">' + STATUS[a.status].nome + '</td></tr>';
+    }).join('');
+    var atras = S.plano.filter(function (a) { return a.status === 'atrasada'; });
+    var just = op.just ? atras.map(function (a) { return '<div class="campo"><label for="j-' + a.id + '">Por que “' + esc(a.titulo) + '” atrasou?</label><textarea id="j-' + a.id + '" rows="2" data-campo="just" data-id="' + a.id + '">' + esc(a.just || '') + '</textarea></div>'; }).join('') : '';
+    function cx(k, t) { return '<label><input type="checkbox" data-rel="' + k + '"' + (op[k] ? ' checked' : '') + '> ' + t + '</label>'; }
+    var resumo = '<strong>' + ct.feito + ' de ' + n + (n === 1 ? ' ação feita.' : ' ações feitas.') + '</strong> ' + ct.andamento + ' em andamento, ' + ct.planejada + (ct.planejada === 1 ? ' planejada e ' : ' planejadas e ') + ct.atrasada + (ct.atrasada === 1 ? ' atrasada.' : ' atrasadas.') +
+      (comM ? ' ' + okM + ' de ' + comM + (comM === 1 ? ' meta medida' : ' metas medidas') + ' no ano ' + (okM === 1 ? 'está em dia.' : 'estão em dia.') : '');
+    return '<header class="topo">' + marca() + '<a href="#/predio" style="font-size:14px;font-weight:600">Voltar ao prédio</a></header>' +
+      '<section class="imp-grade"><div class="imp-lado"><h1>O ano do seu prédio em uma página.</h1>' +
+      '<p class="lead">O relatório de desempenho se escreve com o que você já lançou: o que foi feito, o que atrasou e se as metas foram cumpridas.</p>' +
+      (S.exemplo ? '<p class="tag-ex" style="position:static;display:inline-flex;margin:0 0 14px">Situação das ações da ESMPU: ilustrativa</p>' : '') +
+      '<div class="pils" role="group" aria-label="Ano do relatório">' + anos.map(function (a) { return '<a class="pil" style="--c:#F4F7FB" href="#/relatorio/' + a + '"' + (a === ano ? ' aria-current="page"' : '') + '>' + a + '</a>'; }).join('') + '</div>' +
+      '<fieldset class="opcoes"><legend>O que entra no relatório</legend>' + cx('acoes', 'Situação de cada ação') + cx('metas', 'Metas por eixo, com o ano-base') + cx('just', 'Justificativa das ações atrasadas') + '</fieldset>' + just +
+      '<div class="acoes"><button class="btn" data-act="imprimir">' + ico('imprimir', 18) + 'Imprimir ou salvar PDF</button><a class="btn linha" href="#/lancar">Lançar um mês</a></div></div>' +
+      '<article class="papel" aria-label="Prévia do relatório de desempenho"><div class="p-cab"><div><div class="p-sobre">Relatório de desempenho do PLS · ' + ano + '</div><div class="p-org">' + (esc(S.org.nome) || '[NOME DO ÓRGÃO]') + '</div>' +
+      '<p class="p-resumo">' + resumo + '</p></div><div class="p-predio">' + predio + '<div>energia · resíduos · água</div></div></div>' +
+      (op.metas ? '<h3>Metas do ano</h3><table class="p-metas"><thead><tr><th>Eixo</th><th style="width:19%">' + (S.exemplo ? '2025 (base)' : 'Ano-base') + '</th><th style="width:19%">' + ano + '</th><th style="width:36%">Resultado</th></tr></thead><tbody>' + linhasM + '</tbody></table>' : '') +
+      (op.acoes ? '<h3>O que mudou no prédio</h3><table><thead><tr><th>Ação</th><th class="c3">Quem responde</th><th class="c4" style="width:20%">Situação</th></tr></thead><tbody>' + linhasA + '</tbody></table>' : '') +
+      '<div class="p-pe">Gerado no Prédio Vivo a partir do plano e dos lançamentos mensais do órgão.' + (S.exemplo ? ' Metas do PLS 2026–2028 da ESMPU, em relação a 2025.' : '') + '</div></article></section>';
   }
 
   // ---------------------------------------------------------------- lançar
@@ -514,15 +729,17 @@
     if (r.nome === 'montar') html = vMontar(r.arg);
     else if (r.nome === 'predio') html = vPredio();
     else if (r.nome === 'plano') html = vPlano();
-    else if (r.nome === 'rua') html = vRua(r.arg);
+    else if (r.nome === 'rua') html = r.arg === 'comparar' ? vComparar() : vRua(r.arg);
+    else if (r.nome === 'regua') html = vRegua(r.arg);
+    else if (r.nome === 'relatorio') html = vRelatorio(r.arg);
     else if (r.nome === 'lancar') html = vLancar(r.arg);
     else if (r.nome === 'pesquisa') html = vPesquisa();
     else if (r.nome === 'imprimir') html = vImprimir();
     else { r.nome = ''; html = vAbertura(); }
     app.innerHTML = html; dica.hidden = true;
     var itens = [['predio', 'Prédio', 'predio'], ['plano', 'Plano', 'plano'], ['lancar', 'Lançar', 'lancar'], ['rua', 'A rua', 'rua'], ['pesquisa', 'A pesquisa', 'pesquisa']];
-    doca.hidden = r.nome === '' || r.nome === 'montar' || r.nome === 'imprimir';
-    document.body.className = r.nome === 'imprimir' ? 'imp' : '';
+    doca.hidden = r.nome === '' || r.nome === 'montar' || r.nome === 'imprimir' || r.nome === 'regua' || r.nome === 'relatorio';
+    document.body.className = r.nome === 'imprimir' || r.nome === 'relatorio' ? 'imp' : '';
     doca.innerHTML = itens.map(function (i) { return '<a href="#/' + i[0] + '"' + (r.nome === i[0] ? ' aria-current="page"' : '') + '>' + ico(i[2], 19) + i[1] + '</a>'; }).join('');
     if (r.nome === 'lancar') calcular();
     aviso = '';
@@ -545,6 +762,13 @@
     else if (act === 'status') { S.plano.forEach(function (a) { if (a.id === id) a.status = el.getAttribute('data-st'); }); mudar(); }
     else if (act === 'remover') { S.plano = S.plano.filter(function (a) { return a.id !== id; }); mudar(); }
     else if (act === 'imprimir') window.print();
+    else if (act === 'ceixo') { C.eixo = el.getAttribute('data-v'); desenhar(true); }
+    else if (act === 'cbase') { C.base = el.getAttribute('data-v'); desenhar(true); }
+    else if (act === 'redesenhar') { salvar(); desenhar(true); }
+    else if (act === 'rescrever') { var ri = parseInt(el.getAttribute('data-i'), 10); RG.escrevendo = ri < 0 ? null : ri; desenhar(true); var rn = document.getElementById('r-novo'); if (rn) rn.focus(); }
+    else if (act === 'rsalvar') { var rv = document.getElementById('r-novo'), rid = el.getAttribute('data-r'); if (rv && rv.value.trim()) { S.extras = S.extras || []; S.extras.push({ id: novoId(), regua: rid, tema: REGUAS[rid].temas[parseInt(el.getAttribute('data-i'), 10)], titulo: rv.value.trim() }); S.imp = S.imp || { origem: true, indicador: true }; S.imp.regua = rid; RG.escrevendo = null; salvar(); desenhar(true); } else if (rv) rv.focus(); }
+    else if (act === 'rremover') { S.extras = (S.extras || []).filter(function (x) { return x.id !== el.getAttribute('data-id'); }); salvar(); desenhar(true); }
+    else if (act === 'rincluir') { S.imp = S.imp || { origem: true, indicador: true }; S.imp.regua = S.imp.regua === el.getAttribute('data-r') ? null : el.getAttribute('data-r'); salvar(); desenhar(true); }
     else if (act === 'peixo') { var ve = el.getAttribute('data-v'); P = { eixo: ve || null, tipo: null, busca: '', sel: null, tudo: false }; desenhar(true); }
     else if (act === 'ptipo') { var vt = el.getAttribute('data-v'); P.tipo = P.tipo === vt ? null : vt; P.sel = null; P.tudo = false; desenhar(true); }
     else if (act === 'pbusca') { P = { eixo: null, tipo: null, busca: el.getAttribute('data-v'), sel: null, tudo: false }; desenhar(true); }
@@ -574,6 +798,8 @@
     var campo = t.getAttribute('data-campo'); if (!campo) return;
     if (campo === 'nome') { S.org.nome = t.value; if (t.value !== 'ESMPU') S.exemplo = false; var po = document.getElementById('p-org'); if (po) po.textContent = t.value || '[NOME DO ÓRGÃO]'; }
     else if (campo === 'pessoas') S.org.pessoas = t.value;
+    else if (campo === 'area') S.org.area = t.value;
+    else if (campo === 'just') S.plano.forEach(function (a) { if (a.id === t.getAttribute('data-id')) a.just = t.value; });
     else if (campo === 'ciclo') { S.org.ciclo = t.value; var pc = document.getElementById('p-ciclo'); if (pc) pc.textContent = 'Ciclo ' + (t.value || '[ANO INICIAL] a [ANO FINAL]'); }
     else if (campo === 'prazo') S.plano.forEach(function (a) { if (a.id === t.getAttribute('data-id')) a.prazo = t.value; });
     else if (campo === 'resp') S.plano.forEach(function (a) { if (a.id === t.getAttribute('data-id')) a.resp = t.value; });
@@ -583,6 +809,8 @@
     var t = ev.target;
     if (t.getAttribute('data-campo') === 'status') { S.plano.forEach(function (a) { if (a.id === t.getAttribute('data-id')) a.status = t.value; }); salvar(); }
     if (t.getAttribute('data-act-change') === 'mes' && t.value) location.hash = '#/lancar/' + t.value;
+    if (t.getAttribute('data-campo') === 'just') { salvar(); desenhar(true); }
+    if (t.hasAttribute('data-rel')) { S.rel = S.rel || {}; S.rel[t.getAttribute('data-rel')] = t.checked; salvar(); desenhar(true); }
     if (t.hasAttribute('data-imp')) { S.imp = S.imp || {}; S.imp[t.getAttribute('data-imp')] = t.checked; salvar(); desenhar(true); }
   });
   var dica = document.createElement('div'); dica.className = 'dica-jan'; dica.hidden = true; dica.setAttribute('role', 'tooltip'); document.body.appendChild(dica);
